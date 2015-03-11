@@ -2,6 +2,10 @@ typedef unsigned char ovm_boolval_t;
 typedef long long     ovm_intval_t;
 typedef long double   ovm_floatval_t;
 typedef unsigned long ovm_bmval_unit_t;
+enum {
+  OVM_BMVAL_UNIT_BITS_LOG2 = 5,
+  OVM_BMVAL_UNIT_BITS      = 1 << OVM_BMVAL_UNIT_BITS_LOG2
+};
 struct ovm_strval {
   unsigned   size;
   const char *data;

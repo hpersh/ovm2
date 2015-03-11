@@ -102,7 +102,7 @@ main(void)
 
 #endif
 
-#if 1
+#if 0
 
   ovm_integer_newc(ovm, R1, 42);
   ovm_string_newc(ovm, R2, "The rain in Spain");
@@ -115,6 +115,20 @@ main(void)
   OVM_NEW(ovm, R3, ovm_cl_list, R1, R3);
 
   inst_print(ovm, R3);
+
+#endif
+
+#if 1
+
+  ovm_bmval_unit_t d[] = { 0x12345678, 0x9abcdef0, 0x11111111 };
+
+  ovm_bitmap_newc(ovm, R1, 47, d);
+
+  inst_print(ovm, R1);
+
+  OVM_NEW(ovm, R2, ovm_cl_xml, R1);
+
+  inst_print(ovm, R2);
 
 #endif
 

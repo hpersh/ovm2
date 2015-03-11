@@ -577,6 +577,28 @@ _ovm_string_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_
 
       snprintf(buf, sizeof(buf), "%Lg", FLOATVAL(arg));
       _ovm_strval_initc(ovm, inst, 1, strlen(buf) + 1, buf);
+    } else if (arg_cl == ovm_cl_xml) {
+      _ovm_strval_initc(ovm, inst, 1, STRVAL(arg)->size, STRVAL(arg)->data);
+    } else if (arg_cl == ovm_cl_bitmap) {
+      unsigned nn = 2 + BMVAL(arg)->size + (BMVAL(arg)->size == 0 ? 0 : (BMVAL(arg)->size - 1) / 4) + 1;
+      char buf[nn], *p;
+      ovm_bmval_unit_t *q, u;
+      unsigned i, j, k;
+
+      p = &buf[nn];
+      *--p = 0;
+      for (i = 0, q = (ovm_bmval_unit_t *) BMVAL(arg)->data, j = BMVAL(arg)->size; j; ++q) {
+	for (u = *q, k = OVM_BMVAL_UNIT_BITS; k != 0 && j != 0; --k, u >>= 1, --j, ++i) {
+	  if (i > 0 && (i & 3) == 0) {
+	    *--p = '_';
+	  }
+	  *--p = (u & 1) ? '1' : '0';
+	}
+      }
+      *--p = 'b';
+      *--p = '0';
+      
+      _ovm_strval_initc(ovm, inst, 1, nn, buf);
     } else if (arg_cl == ovm_cl_pair) {
       void *old;
 
@@ -654,13 +676,275 @@ const struct ovm_class ovm_cl_string[1] = {
 
 /***************************************************************************/
 
+static void
+_ovm_xml_newc(ovm_t ovm, ovm_inst_t *dst, char *s)
+{
+  _ovm_inst_alloc(ovm, ovm_cl_xml, dst);
+  _ovm_strval_initc(ovm, *dst, 1, strlen(s) + 1, s);
+}
+
+static void
+_ovm_xml_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_inst_t *argv)
+{
+  if (argc > 0) {
+    ovm_inst_t  arg = argv[0];
+    ovm_class_t arg_cl = _ovm_inst_of(arg);
+
+    if (arg == 0) {
+      _ovm_strval_initc(ovm, inst, 1, 7, "<nil/>");
+    } else if (arg_cl == ovm_cl_boolean) {
+      char buf[21];
+
+      snprintf(buf, sizeof(buf), "<Boolean>%c</Boolean>", BOOLVAL(arg) ? '1' : '0');
+      _ovm_strval_initc(ovm, inst, 1, sizeof(buf), buf);
+    } else if (arg_cl == ovm_cl_integer) {
+      char buf[64];
+
+      snprintf(buf, sizeof(buf), "<Integer>%lld</Integer>", INTVAL(arg));
+      _ovm_strval_initc(ovm, inst, 1, strlen(buf) + 1, buf);
+    } else if (arg_cl == ovm_cl_float) {
+      char buf[96];
+
+      snprintf(buf, sizeof(buf), "<Float>%Lg</Float>", FLOATVAL(arg));
+      _ovm_strval_initc(ovm, inst, 1, strlen(buf) + 1, buf);
+    } else if (arg_cl == ovm_cl_string) {
+      unsigned nn, k;
+      const char *p;
+
+      for (nn = 0, p = STRVAL(arg)->data, k = STRVAL(arg)->size - 1; k; --k, ++p) {
+	switch (*p) {
+	case '\'':
+	case '"':
+	  nn += 6;
+	  break;
+	case '&':
+	  nn += 5;
+	  break;
+	case '<':
+	case '>':
+	  nn += 4;
+	  break;
+	default:
+	  ++nn;
+	}
+      }
+      ++nn;
+      
+      {
+	char buf[nn], c, *q;
+
+	for (nn = 0, q = buf, p = STRVAL(arg)->data, k = STRVAL(arg)->size - 1; k; --k, ++p) {
+	  c = *p;
+	  switch (c) {
+	  case '\'':
+	    strcpy(q, "&apos;");
+	    q += 6;
+	    break;
+	  case '"':
+	    strcpy(q, "&quot;");
+	    q += 6;
+	    break;
+	  case '&':
+	    strcpy(q, "&amp;");
+	    q += 5;
+	    break;
+	  case '<':
+	    strcpy(q, "&lt;");
+	    q += 4;
+	    break;
+	  case '>':
+	    strcpy(q, "&gtt;");
+	    q += 4;
+	    break;
+	  default:
+	    *q++ = c;
+	  }
+	}
+	*q = 0;
+	
+	_ovm_strval_initc(ovm, inst, 1, nn, buf);
+      }
+    } else if (arg_cl == ovm_cl_bitmap) {
+      unsigned nn = 8 + BMVAL(arg)->size + 9 + 1;
+      char buf[nn], *p;
+      ovm_bmval_unit_t *q, u;
+      unsigned j, k;
+
+      p = buf;
+      strcpy(p, "<Bitmap>");
+      p += 8;
+      for (q = (ovm_bmval_unit_t *) BMVAL(arg)->data, j = BMVAL(arg)->size; j; ++q) {
+	for (u = *q, k = OVM_BMVAL_UNIT_BITS; k != 0 && j != 0; --k, u >>= 1, --j) {
+	  *p++ = (u & 1) ? '1' : '0';
+	}
+      }
+      strcpy(p, "</Bitmap>");
+      
+      _ovm_strval_initc(ovm, inst, 1, nn, buf);
+    } else if (arg_cl == ovm_cl_pair) {
+      void *old;
+
+      old = ovm_falloc(ovm, 4);
+
+      _ovm_string_newc(ovm, &ovm->fp[-4], "<Pair>");
+      __ovm_new(ovm, &ovm->fp[-3], ovm_cl_xml, 1, CAR(arg));
+      __ovm_new(ovm, &ovm->fp[-2], ovm_cl_xml, 1, CDR(arg));
+      _ovm_string_newc(ovm, &ovm->fp[-1], "</Pair>");
+
+      _ovm_strval_inita(ovm, inst, 4, &ovm->fp[-4]);
+
+      ovm_ffree(ovm, old);
+    } else if (arg_cl == ovm_cl_list) {
+      unsigned n = _list_len(arg);
+      unsigned nn = 1 + n + 1;
+      void *old;
+      ovm_inst_t p, *q;
+
+      old = ovm_falloc(ovm, nn);
+      q = ovm->sp;
+
+      _ovm_string_newc(ovm, q, "<List>");
+      ++q;
+
+      for (p = arg; p; p = CDR(p)) {
+	__ovm_new(ovm, q, ovm_cl_xml, 1, CAR(p));
+	++q;
+      }
+      _ovm_string_newc(ovm, q, "</List>");
+
+      _ovm_strval_inita(ovm, inst, nn, ovm->sp);
+
+      ovm_ffree(ovm, old);
+    } else {
+      OVM_ASSERT(0);
+    } 
+
+    --argc;  ++argv;
+  }
+
+  _ovm_init_parent(ovm, inst, cl, argc, argv);
+}
+
+const struct ovm_class ovm_cl_xml[1] = {
+  { .name   = "Xml",
+    .parent = ovm_cl_string,
+    .new    = _ovm_inst_new1,
+    .init   = _ovm_xml_init,
+    .walk   = _ovm_walk_parent,
+    .free   = _ovm_free_parent,
+    .inst_method_tbl = {
+    }
+  }
+};
+
+/***************************************************************************/
+
+static ovm_bmval_unit_t
+bmval_bit(unsigned sh)
+{
+  return (((ovm_bmval_unit_t) 1) << sh);
+}
+
+static ovm_bmval_unit_t
+bmval_bits(unsigned n)
+{
+  return (n >= (OVM_BMVAL_UNIT_BITS - 1) ? (ovm_bmval_unit_t) -1 : bmval_bit(n) - 1);
+}
+
+static unsigned
+bmap_unit_idx(unsigned b)
+{
+  return (b >> OVM_BMVAL_UNIT_BITS_LOG2);
+}
+
+static unsigned
+bmap_unit_sh(unsigned b)
+{
+  return (b & (OVM_BMVAL_UNIT_BITS - 1));
+}
+
+static unsigned
+bmap_bits_to_units(unsigned size)
+{
+  return (bmap_unit_idx(size - 1) + 1);
+}
+
+static unsigned
+bmap_units_to_bytes(unsigned units)
+{
+  return (units * sizeof(ovm_bmval_unit_t));
+}
+
+static unsigned
+bmap_bits_to_bytes(unsigned size)
+{
+  return (bmap_units_to_bytes(bmap_bits_to_units(size)));
+}
+
+static void
+_ovm_bmval_alloc(ovm_t ovm, ovm_inst_t inst, unsigned size)
+{
+  BMVAL(inst)->size = size;
+  BMVAL(inst)->data = _ovm_malloc(ovm, bmap_bits_to_bytes(size));
+}
+
+static void
+_ovm_bmval_clr(ovm_inst_t inst)
+{
+  memset((void *) BMVAL(inst)->data, 0, bmap_bits_to_bytes(BMVAL(inst)->size));
+}
+
+void
+_ovm_bitmap_newc(ovm_t ovm, ovm_inst_t *dst, unsigned size, ovm_bmval_unit_t *data)
+{
+  unsigned n = bmap_bits_to_units(size);
+  unsigned sh = bmap_unit_sh(size);
+  ovm_bmval_unit_t *p;
+
+  _ovm_inst_alloc(ovm, ovm_cl_bitmap, dst);
+  _ovm_bmval_alloc(ovm, *dst, size);
+  p = (ovm_bmval_unit_t *) BMVAL(*dst)->data;
+  memcpy(p, data, bmap_units_to_bytes(n));
+  if (sh != 0)  p[n - 1] &= bmval_bit(sh) - 1;
+}
+
+static void
+_ovm_bmap_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_inst_t *argv)
+{
+  if (argc > 0) {
+    ovm_inst_t  arg = argv[0];
+    ovm_class_t arg_cl = _ovm_inst_of(arg);
+
+    if (arg_cl == ovm_cl_integer) {
+      OVM_ASSERT(INTVAL(arg) >= 0);
+
+      _ovm_bmval_alloc(ovm, inst, INTVAL(arg));
+      _ovm_bmval_clr(inst);
+    } else {
+      OVM_ASSERT(0);
+    }
+
+    --argc;  ++argv;
+  }
+
+  _ovm_init_parent(ovm, inst, cl, argc, argv);
+}
+
+static void 
+_ovm_bmap_free(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl)
+{
+  _ovm_free(ovm, bmap_bits_to_bytes(BMVAL(inst)->size), (void *) BMVAL(inst)->data);
+
+  _ovm_free_parent(ovm, inst, cl);
+}
+
 const struct ovm_class ovm_cl_bitmap[1] = {
   { .name   = "Bitmap",
     .parent = ovm_cl_object,
     .new    = _ovm_inst_new1,
-    .init   = _ovm_string_init,
+    .init   = _ovm_bmap_init,
     .walk   = _ovm_walk_parent,
-    .free   = _ovm_string_free,
+    .free   = _ovm_bmap_free,
     .inst_method_tbl = {
     }
   }
@@ -1066,6 +1350,16 @@ ovm_string_newc(ovm_t ovm, unsigned dst, char *s)
   if (dst == 0)  return;
   
   _ovm_string_newc(ovm, &ovm->regs[dst], s);
+}
+
+void
+ovm_bitmap_newc(ovm_t ovm, unsigned dst, unsigned size, ovm_bmval_unit_t *data)
+{
+  REG_CHK(dst);
+
+  if (dst == 0)  return;
+  
+  _ovm_bitmap_newc(ovm, &ovm->regs[dst], size, data);
 }
 
 void
