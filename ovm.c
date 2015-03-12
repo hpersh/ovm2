@@ -150,7 +150,17 @@ list_erase(struct list *node)
   return (node);
 }
 
+static void
+slice(ovm_intval_t *ofs, ovm_intval_t *len, unsigned size)
+{
+  if (*ofs < 0)  *ofs = (ovm_intval_t) size + *ofs;
+  if (*len < 0) {
+    *ofs += *len;
+    *len = -*len;
+  }
 
+  OVM_ASSERT(*ofs >= 0 && (*ofs + *len) <= size);
+}
 
 static inline ovm_class_t
 _ovm_inst_of(ovm_inst_t inst)
@@ -1335,6 +1345,121 @@ const struct ovm_class ovm_cl_list[1] = {
     .inst_method_tbl = {
       [OVM_METHOD_CALL_SEL_EQUAL] = _ovm_list_equal,
       [OVM_METHOD_CALL_SEL_HASH]  = _ovm_list_hash
+    }
+  }
+};
+
+/***************************************************************************/
+
+static void
+_ovm_arrayval_alloc(ovm_t ovm, ovm_inst_t inst, unsigned size)
+{
+  unsigned n = size * sizeof(ARRAYVAL(inst)->data[0]);
+
+  ARRAYVAL(inst)->size = size;
+  ARRAYVAL(inst)->data = _ovm_malloc(ovm, n);
+}
+
+static void
+_ovm_array_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_inst_t *argv)
+{
+  if (argc > 0) {
+    ovm_inst_t  arg = argv[0];
+    ovm_class_t arg_cl = _ovm_inst_of(arg);
+
+    if (arg_cl == ovm_cl_integer) {
+      OVM_ASSERT(INTVAL(arg) >= 0);
+
+      _ovm_arrayval_alloc(ovm, inst, INTVAL(arg));
+      memset(ARRAYVAL(inst)->data, 0, ARRAYVAL(inst)->size * sizeof(ARRAYVAL(inst)->data[0]));
+    } else if (arg_cl == ovm_cl_list) {
+      unsigned   n = _list_len(arg);
+      ovm_inst_t *p, q;
+
+      _ovm_arrayval_alloc(ovm, inst, n);
+
+      for (p = ARRAYVAL(inst)->data, q = arg; q; q = CDR(q), ++p) {
+	*p = _ovm_inst_retain(CAR(q));
+      }
+    } else if (arg_cl == ovm_cl_array) {
+      unsigned   n = ARRAYVAL(arg)->size;
+      ovm_inst_t *p, *q;
+
+      _ovm_arrayval_alloc(ovm, inst, n);
+
+      for (p = ARRAYVAL(inst)->data, q = ARRAYVAL(arg)->data; n; --n, ++q, ++p) {
+	*p = _ovm_inst_retain(*q);
+      }
+    } else if (ovm_is_subclass_of(arg_cl, ovm_cl_set)) {
+      unsigned   n;
+      ovm_inst_t *p, *q, r;
+
+      _ovm_arrayval_alloc(ovm, inst, SETVAL(arg)->cnt);
+
+      for (p = ARRAYVAL(inst)->data, q = ARRAYVAL(arg)->data, n = ARRAYVAL(arg)->size;
+	   n;
+	   --n, ++q
+	   ) {
+	for (r = *q; r; r = CDR(r), ++p) {
+	  *p = _ovm_inst_retain(CAR(r));
+	}
+      }
+    } else {
+      OVM_ASSERT(0);
+    }
+    
+    --argc;  ++argv;
+  }
+  
+  _ovm_init_parent(ovm, inst, cl, argc, argv);
+}
+
+static void
+_ovm_array_walk(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, void (*func)(ovm_t ovm, ovm_inst_t inst))
+{
+  ovm_inst_t *p;
+  unsigned   n;
+
+  for (p = ARRAYVAL(inst)->data, n = ARRAYVAL(inst)->size; n; --n, ++p) {
+    (*func)(ovm, *p);
+  }
+
+  _ovm_walk_parent(ovm, inst, cl, func);
+}
+
+static void 
+_ovm_array_free(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl)
+{
+  _ovm_free(ovm, ARRAYVAL(inst)->size * sizeof(ARRAYVAL(inst)->data[0]), ARRAYVAL(inst)->data);
+
+  _ovm_free_parent(ovm, inst, cl);  
+}
+
+static void
+_ovm_array_at(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
+{
+  ovm_intval_t ofs, len;
+
+  OVM_ASSERT(_ovm_is_kind_of(argv[0], ovm_cl_array));
+  OVM_ASSERT(argc == 1);
+  OVM_ASSERT(_ovm_is_kind_of(argv[1], ovm_cl_integer));
+
+  ofs = INTVAL(argv[1]);
+  len = 1;
+  slice(&ofs, &len, ARRAYVAL(argv[0])->size);
+
+  OVM_CASSIGN(ovm, dst, ARRAYVAL(argv[0])->data[ofs]);
+}
+
+const struct ovm_class ovm_cl_array[1] = {
+  { .name   = "Array",
+    .parent = ovm_cl_object,
+    .new    = _ovm_inst_new2,
+    .init   = _ovm_array_init,
+    .walk   = _ovm_array_walk,
+    .free   = _ovm_array_free,
+    .inst_method_tbl = {
+      [OVM_METHOD_CALL_SEL_AT] = _ovm_array_at
     }
   }
 };
