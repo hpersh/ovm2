@@ -162,6 +162,80 @@ slice(ovm_intval_t *ofs, ovm_intval_t *len, unsigned size)
   OVM_ASSERT(*ofs >= 0 && (*ofs + *len) <= size);
 }
 
+static void
+sv_init(struct ovm_strval *sv, unsigned size, const char *data)
+{
+  sv->size = size;
+  sv->data = data;
+}
+
+static unsigned
+sv_eof(struct ovm_strval *sv)
+{
+  return (sv->size == 0);
+}
+
+static void
+sv_adv(struct ovm_strval *sv, unsigned n)
+{
+  OVM_ASSERT(n <= sv->size);
+
+  sv->data += n;
+  sv->size -= n;
+}
+
+static void
+sv_trim(struct ovm_strval *sv, unsigned n)
+{
+  OVM_ASSERT(n <= sv->size);
+
+  sv->size -= n;
+}
+
+static int
+sv_getc(struct ovm_strval *sv)
+{
+  char c;
+
+  if (sv_eof(sv))  return (-1);
+
+  c = *sv->data;
+
+  ++sv->data;  --sv->size;
+
+  return (c);
+}
+
+static int
+sv_peekc(struct ovm_strval *sv, unsigned ofs)
+{
+  return (ofs >= sv->size ? -1 : sv->data[ofs]);
+}
+
+static unsigned
+sv_strcmp(struct ovm_strval *sv, unsigned ofs, unsigned len, char *s)
+{
+  return ((ofs + len) <= sv->size && memcmp(sv->data + ofs, s, len) == 0);
+}
+
+static int
+sv_ungetc(struct ovm_strval *sv)
+{
+  --sv->data;  ++sv->size;
+}
+
+static void
+sv_spskip(struct ovm_strval *sv)
+{
+  char c;
+
+  for (;;) {
+    if (sv_eof(sv) || !isspace(*sv->data))  return;
+    ++sv->data;  --sv->size;
+  }
+}
+
+
 static inline ovm_class_t
 _ovm_inst_of(ovm_inst_t inst)
 {
@@ -459,21 +533,57 @@ _ovm_boolean_newc(ovm_t ovm, ovm_inst_t *dst, ovm_boolval_t val)
   BOOLVAL(*dst) = (val != 0);
 }
 
+static int
+_xml_parse_bool2(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t inst)
+{
+  int      c;
+  unsigned val;
+  
+  c = sv_getc(pb);
+  switch (c) {
+  case '0':  val = 0;  break;
+  case '1':  val = 1;  break;
+  default:   return (-1);
+  }
+
+  sv_spskip(pb);
+  if (!sv_strcmp(pb, 0, 10, "</Boolean>"))  return (-1);
+  sv_adv(pb, 10);
+  sv_spskip(pb);
+  if (!sv_eof(pb))  return (-1);
+
+  BOOLVAL(inst) = val;
+
+  return (0);
+}
+
+static int
+_xml_parse_bool(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t inst)
+{
+  sv_spskip(pb);
+  if (!sv_strcmp(pb, 0, 9, "<Boolean>"))  return (-1);
+  sv_adv(pb, 9);
+  sv_spskip(pb);
+  return (_xml_parse_bool2(ovm, pb, inst));
+}
+
 static void
 _ovm_boolean_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_inst_t *argv)
 {
   if (argc > 0) {
     ovm_inst_t  arg    = argv[0];
     ovm_class_t arg_cl = _ovm_inst_of(arg);
-    ovm_boolval_t val   = 0;
 
     if (arg_cl == ovm_cl_integer) {
-      val = (INTVAL(arg) != 0);
+      BOOLVAL(inst) = (INTVAL(arg) != 0);
+    } else if (arg_cl == ovm_cl_xml) {
+      struct ovm_strval pb[1];
+      
+      sv_init(pb, STRVAL(arg)->size - 1, STRVAL(arg)->data);
+      OVM_ASSERT(_xml_parse_bool(ovm, pb, inst) == 0);
     } else {
       OVM_ASSERT(0);
     }
-
-    BOOLVAL(inst) = val;
 
     --argc;  ++argv;
   }
@@ -2413,6 +2523,18 @@ ovm_string_newc(ovm_t ovm, unsigned dst, char *s)
   if (dst == 0)  return;
   
   _ovm_string_newc(ovm, &ovm->regs[dst], s);
+}
+
+void
+ovm_xml_newc(ovm_t ovm, unsigned dst, char *s)
+{
+  ovm_inst_t *p;
+
+  REG_CHK(dst);
+
+  if (dst == 0)  return;
+  
+  _ovm_xml_newc(ovm, &ovm->regs[dst], s);
 }
 
 void

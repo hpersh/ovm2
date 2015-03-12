@@ -170,7 +170,7 @@ main(void)
 
 #endif
 
-#if 1
+#if 0
 
   enum {
     DICT, KEY, VAL
@@ -203,6 +203,15 @@ main(void)
   OVM_METHOD_CALL(ovm, R0, R1, OVM_METHOD_CALL_SEL_DEL, R2);
 
   inst_print(ovm, R1);
+
+#endif
+
+#if 1
+
+  ovm_xml_newc(ovm, R1, "  <Boolean>   1 </Boolean>     ");
+  OVM_NEW(ovm, R2, ovm_cl_boolean, R1);
+  OVM_NEW(ovm, R3, ovm_cl_xml, R2);
+  inst_print(ovm, R3);
 
 #endif
 
