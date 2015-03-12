@@ -118,7 +118,7 @@ main(void)
 
 #endif
 
-#if 1
+#if 0
 
   ovm_bmval_unit_t d[] = { 0x12345678, 0x9abcdef0, 0x11111111 };
 
@@ -128,6 +128,21 @@ main(void)
 
   OVM_NEW(ovm, R2, ovm_cl_xml, R1);
 
+  inst_print(ovm, R2);
+
+#endif
+
+#if 1
+
+  ovm_integer_newc(ovm, R1, 10);
+
+  OVM_NEW(ovm, R2, ovm_cl_array, R1);
+
+  ovm_integer_newc(ovm, R3, 3);
+  ovm_string_newc(ovm, R4, "The rain in Spain");
+
+  OVM_METHOD_CALL(ovm, R0, R2, OVM_METHOD_CALL_SEL_AT_PUT, R3, R4);
+  
   inst_print(ovm, R2);
 
 #endif

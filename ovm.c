@@ -696,12 +696,12 @@ _ovm_string_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_
     ovm_class_t arg_cl = _ovm_inst_of(arg);
 
     if (arg == 0) {
-      _ovm_strval_initc(ovm, inst, 1, 4, "#nil");
+      _ovm_strval_initc(ovm, inst, 1, 5, "#nil");
     } else if (arg_cl == ovm_cl_boolean) {
       if (BOOLVAL(arg)) {
-	_ovm_strval_initc(ovm, inst, 1, 5, "#true");
+	_ovm_strval_initc(ovm, inst, 1, 6, "#true");
       } else {
-	_ovm_strval_initc(ovm, inst, 1, 6, "#false");      
+	_ovm_strval_initc(ovm, inst, 1, 7, "#false");      
       }
     } else if (arg_cl == ovm_cl_integer) {
       char buf[32];
@@ -754,13 +754,13 @@ _ovm_string_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_
       unsigned nn = 1 + (n < 2 ? n : 2 * n - 1) + 1;
       void *old;
       unsigned i;
-      ovm_inst_t p, *q, *d, *a;
+      ovm_inst_t p, *q, d, *a;
 
       old = ovm_falloc(ovm, nn + 1);
       q = ovm->sp;
 
       _ovm_string_newc(ovm, q, ", ");
-      d = q;
+      d = *q;
       ++q;
 
       _ovm_string_newc(ovm, q, "(");
@@ -768,7 +768,7 @@ _ovm_string_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_
       ++q;
       for (i = 0, p = arg; p; p = CDR(p), ++i) {
 	if (i > 0) {
-	  _ovm_assign(ovm, q, *d);
+	  _ovm_assign(ovm, q, d);
 	  ++q;
 	}
 
@@ -776,6 +776,112 @@ _ovm_string_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_
 	++q;
       }
       _ovm_string_newc(ovm, q, ")");
+
+      _ovm_strval_inita(ovm, inst, nn, a);
+
+      ovm_ffree(ovm, old);
+    } else if (arg_cl == ovm_cl_array) {
+      unsigned n = ARRAYVAL(arg)->size;
+      unsigned nn = 1 + (n < 2 ? n : 2 * n - 1) + 1;
+      void *old;
+      unsigned i;
+      ovm_inst_t *p, *q, d, *a;
+
+      old = ovm_falloc(ovm, nn + 1);
+      q = ovm->sp;
+
+      _ovm_string_newc(ovm, q, ", ");
+      d = *q;
+      ++q;
+
+      _ovm_string_newc(ovm, q, "[");
+      a = q;
+      ++q;
+      for (i = 0, p = ARRAYVAL(arg)->data; n; --n, ++p, ++i) {
+	if (i > 0) {
+	  _ovm_assign(ovm, q, d);
+	  ++q;
+	}
+
+	__ovm_new(ovm, q, ovm_cl_string, 1, *p);
+	++q;
+      }
+      _ovm_string_newc(ovm, q, "]");
+
+      _ovm_strval_inita(ovm, inst, nn, a);
+
+      ovm_ffree(ovm, old);
+    } else if (arg_cl == ovm_cl_set) {
+      unsigned n = SETVAL(arg)->cnt;
+      unsigned nn = 1 + (n < 2 ? n : 2 * n - 1) + 1;
+      void *old;
+      unsigned i;
+      ovm_inst_t *p, *q, r, d, *a;
+
+      old = ovm_falloc(ovm, nn + 1);
+      q = ovm->sp;
+
+      _ovm_string_newc(ovm, q, ", ");
+      d = *q;
+      ++q;
+
+      _ovm_string_newc(ovm, q, "{");
+      a = q;
+      ++q;
+      for (i = 0, p = SETVAL(arg)->base->data, n = SETVAL(arg)->base->size; n; --n, ++p) {
+	for (r = *p; r; r = CDR(r), ++i) {
+	  if (i > 0) {
+	    _ovm_assign(ovm, q, d);
+	    ++q;
+	  }
+	  
+	  __ovm_new(ovm, q, ovm_cl_string, 1, CAR(r));
+	  ++q;
+	}
+      }
+      _ovm_string_newc(ovm, q, "}");
+
+      _ovm_strval_inita(ovm, inst, nn, a);
+
+      ovm_ffree(ovm, old);
+    } else if (arg_cl == ovm_cl_dictionary) {
+      unsigned n = SETVAL(arg)->cnt;
+      unsigned nn = 1 + (n < 2 ? 3 * n : 4 * n - 1) + 1;
+      void *old;
+      unsigned i;
+      ovm_inst_t *p, *q, r, s, d1, d2, *a;
+
+      old = ovm_falloc(ovm, nn + 2);
+      q = ovm->sp;
+
+      _ovm_string_newc(ovm, q, ": ");
+      d1 = *q;
+      ++q;
+
+      _ovm_string_newc(ovm, q, ", ");
+      d2 = *q;
+      ++q;
+
+      _ovm_string_newc(ovm, q, "{");
+      a = q;
+      ++q;
+      for (i = 0, p = SETVAL(arg)->base->data, n = SETVAL(arg)->base->size; n; --n, ++p) {
+	for (r = *p; r; r = CDR(r), ++i) {
+	  if (i > 0) {
+	    _ovm_assign(ovm, q, d2);
+	    ++q;
+	  }
+	  
+	  s = CAR(r);
+	  __ovm_new(ovm, q, ovm_cl_string, 1, CAR(s));
+	  ++q;
+	  _ovm_assign(ovm, q, d1);
+	  ++q;
+	  __ovm_new(ovm, q, ovm_cl_string, 1, CDR(s));
+	  ++q;
+	}
+      }
+      _ovm_string_newc(ovm, q, "}");
 
       _ovm_strval_inita(ovm, inst, nn, a);
 
@@ -1451,6 +1557,24 @@ _ovm_array_at(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   OVM_CASSIGN(ovm, dst, ARRAYVAL(argv[0])->data[ofs]);
 }
 
+static void
+_ovm_array_at_put(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
+{
+  ovm_intval_t ofs, len;
+
+  OVM_ASSERT(_ovm_is_kind_of(argv[0], ovm_cl_array));
+  OVM_ASSERT(argc == 2);
+  OVM_ASSERT(_ovm_is_kind_of(argv[1], ovm_cl_integer));
+
+  ofs = INTVAL(argv[1]);
+  len = 1;
+  slice(&ofs, &len, ARRAYVAL(argv[0])->size);
+
+  _ovm_assign(ovm, &ARRAYVAL(argv[0])->data[ofs], argv[2]);
+
+  OVM_CASSIGN(ovm, dst, argv[2]);
+}
+
 const struct ovm_class ovm_cl_array[1] = {
   { .name   = "Array",
     .parent = ovm_cl_object,
@@ -1459,7 +1583,8 @@ const struct ovm_class ovm_cl_array[1] = {
     .walk   = _ovm_array_walk,
     .free   = _ovm_array_free,
     .inst_method_tbl = {
-      [OVM_METHOD_CALL_SEL_AT] = _ovm_array_at
+      [OVM_METHOD_CALL_SEL_AT]     = _ovm_array_at,
+      [OVM_METHOD_CALL_SEL_AT_PUT] = _ovm_array_at_put
     }
   }
 };
