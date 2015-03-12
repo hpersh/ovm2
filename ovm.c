@@ -1092,6 +1092,76 @@ _ovm_xml_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_ins
     _ovm_strval_inita(ovm, inst, nn, wp);
 
     ovm_ffree(ovm, old);
+  } else if (arg_cl == ovm_cl_array) {
+    unsigned n = ARRAYVAL(arg)->size;
+    unsigned nn = 1 + n + 1;
+    void *old;
+    ovm_inst_t *wp, *p, *q;
+
+    old = ovm_falloc(ovm, nn);
+    wp = ovm->sp;
+
+    q = wp;
+
+    _ovm_string_newc(ovm, &wp[0], "<Array>");
+
+    for (q = &wp[1], p = ARRAYVAL(arg)->data; n; --n, ++p) {
+      __ovm_new(ovm, q, ovm_cl_xml, 1, *p);
+      ++q;
+    }
+    _ovm_string_newc(ovm, q, "</Array>");
+
+    _ovm_strval_inita(ovm, inst, nn, wp);
+
+    ovm_ffree(ovm, old);
+  } else if (arg_cl == ovm_cl_set) {
+    unsigned n = SETVAL(arg)->cnt;
+    unsigned nn = 1 + n + 1;
+    void *old;
+    ovm_inst_t *wp, *p, *q, r;
+
+    old = ovm_falloc(ovm, nn);
+    wp = ovm->sp;
+
+    q = wp;
+
+    _ovm_string_newc(ovm, &wp[0], "<Set>");
+
+    for (q = &wp[1], p = SETVAL(arg)->base->data, n = SETVAL(arg)->base->size; n; --n, ++p) {
+      for (r = *p; r; r = CDR(r)) {
+	__ovm_new(ovm, q, ovm_cl_xml, 1, CAR(r));
+	++q;
+      }
+    }
+    _ovm_string_newc(ovm, q, "</Set>");
+
+    _ovm_strval_inita(ovm, inst, nn, wp);
+
+    ovm_ffree(ovm, old);
+  } else if (arg_cl == ovm_cl_dictionary) {
+    unsigned n = SETVAL(arg)->cnt;
+    unsigned nn = 1 + n + 1;
+    void *old;
+    ovm_inst_t *wp, *p, *q, r;
+
+    old = ovm_falloc(ovm, nn);
+    wp = ovm->sp;
+
+    q = wp;
+
+    _ovm_string_newc(ovm, &wp[0], "<Dictionary>");
+
+    for (q = &wp[1], p = SETVAL(arg)->base->data, n = SETVAL(arg)->base->size; n; --n, ++p) {
+      for (r = *p; r; r = CDR(r)) {
+	__ovm_new(ovm, q, ovm_cl_xml, 1, CAR(r));
+	++q;
+      }
+    }
+    _ovm_string_newc(ovm, q, "</Dictionary>");
+
+    _ovm_strval_inita(ovm, inst, nn, wp);
+
+    ovm_ffree(ovm, old);
   } else {
     OVM_ASSERT(0);
   } 

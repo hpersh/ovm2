@@ -197,6 +197,9 @@ main(void)
   
   inst_print(ovm, R1);
 
+  OVM_NEW(ovm, R4, ovm_cl_xml, R1);
+  inst_print(ovm, R4);
+
   OVM_METHOD_CALL(ovm, R0, R1, OVM_METHOD_CALL_SEL_DEL, R2);
 
   inst_print(ovm, R1);
