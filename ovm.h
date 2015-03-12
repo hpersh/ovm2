@@ -47,6 +47,7 @@ typedef const struct ovm_class *ovm_class_t;
 
 void ovm_init(ovm_t ovm, unsigned inst_page_size, void *glob, unsigned glob_size, void *stack, unsigned stack_size);
 
+unsigned    ovm_is_nil(ovm_t ovm, unsigned src);
 ovm_class_t ovm_inst_of(ovm_t ovm, unsigned src);
 const char *ovm_class_name(ovm_class_t cl);
 ovm_class_t ovm_class_parent(ovm_class_t cl);

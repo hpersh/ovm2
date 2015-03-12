@@ -488,6 +488,8 @@ _ovm_boolean_equal(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   OVM_ASSERT(argc == 1);
   OVM_ASSERT(_ovm_is_kind_of(argv[1], ovm_cl_boolean));
 
+  if (dst == 0)  return;
+
   _ovm_boolean_newc(ovm, dst, (BOOLVAL(argv[0]) != 0) == (BOOLVAL(argv[1]) != 0));
 }
 
@@ -496,6 +498,8 @@ _ovm_boolean_hash(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   OVM_ASSERT(_ovm_is_kind_of(argv[0], ovm_cl_boolean));
   OVM_ASSERT(argc == 0);
+
+  if (dst == 0)  return;
 
   _ovm_integer_newc(ovm, dst, BOOLVAL(argv[0]) != 0);
 }
@@ -564,6 +568,8 @@ _ovm_integer_equal(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   OVM_ASSERT(argc == 1);
   OVM_ASSERT(_ovm_is_kind_of(argv[1], ovm_cl_integer));
 
+  if (dst == 0)  return;
+
   _ovm_boolean_newc(ovm, dst, INTVAL(argv[0]) == INTVAL(argv[1]));
 }
 
@@ -574,6 +580,8 @@ _ovm_integer_hash(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 
   OVM_ASSERT(_ovm_is_kind_of(argv[0], ovm_cl_integer));
   OVM_ASSERT(argc == 0);
+
+  if (dst == 0)  return;
 
   crc32_init(h);
   crc32_sh(h, (char *) &INTVAL(argv[0]), sizeof(INTVAL(argv[0])));
@@ -896,6 +904,8 @@ _ovm_string_equal(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   OVM_ASSERT(argc == 1);
   OVM_ASSERT(_ovm_is_kind_of(argv[1], ovm_cl_string));
 
+  if (dst == 0)  return;
+
   _ovm_boolean_newc(ovm, dst,
 		    STRVAL(argv[0])->size == STRVAL(argv[1])->size
 		    && memcmp(STRVAL(argv[0])->data, STRVAL(argv[1])->data, STRVAL(argv[0])->size - 1) == 0
@@ -909,6 +919,8 @@ _ovm_string_hash(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 
   OVM_ASSERT(_ovm_is_kind_of(argv[0], ovm_cl_string));
   OVM_ASSERT(argc == 0);
+
+  if (dst == 0)  return;
 
   crc32_init(h);
   crc32_sh(h, (char *) STRVAL(argv[0])->data, STRVAL(argv[0])->size - 1);
@@ -988,12 +1000,14 @@ _ovm_xml_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_ins
 	++nn;
       }
     }
-    ++nn;
+    nn += 8 + 9 + 1;
       
     {
+      
       char buf[nn], c, *q;
 
-      for (nn = 0, q = buf, p = STRVAL(arg)->data, k = STRVAL(arg)->size - 1; k; --k, ++p) {
+      strcpy(buf, "<String>");
+      for (q = buf + 8, p = STRVAL(arg)->data, k = STRVAL(arg)->size - 1; k; --k, ++p) {
 	c = *p;
 	switch (c) {
 	case '\'':
@@ -1020,7 +1034,7 @@ _ovm_xml_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_ins
 	  *q++ = c;
 	}
       }
-      *q = 0;
+      strcpy(q, "</String>");
 	
       _ovm_strval_initc(ovm, inst, 1, nn, buf);
     }
@@ -2004,6 +2018,14 @@ const struct ovm_class ovm_cl_dictionary[1] = {
 };
 
 /***************************************************************************/
+
+unsigned
+ovm_is_nil(ovm_t ovm, unsigned src)
+{
+  REG_CHK(src);
+
+  return (ovm->regs[src] == 0);
+}
 
 ovm_class_t
 ovm_inst_of(ovm_t ovm, unsigned src)

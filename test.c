@@ -8,6 +8,10 @@ enum {
 
 unsigned char globals[4096], stack[4096];
 
+enum {
+  GLOB_A, GLOB_B, GLOB_C
+};
+
 ovm_var ovm;
 
 
@@ -168,18 +172,34 @@ main(void)
 
 #if 1
 
-  OVM_NEW(ovm, R2, ovm_cl_dictionary);
+  enum {
+    DICT, KEY, VAL
+  };
 
-  ovm_integer_newc(ovm, R3, 42);
-  ovm_string_newc(ovm, R4, "The rain in Spain");
+  ovm_integer_newc(ovm, R1, 42);
+  ovm_gstore(ovm, KEY, R1);
 
-  OVM_METHOD_CALL(ovm, R0, R2, OVM_METHOD_CALL_SEL_AT_PUT, R3, R4);
+  ovm_string_newc(ovm, R1, "The rain in &Spain");
+  ovm_gstore(ovm, VAL, R1);
+
+  OVM_NEW(ovm, R2, ovm_cl_xml, R1);
+
+  inst_print(ovm, R2);
+
+  OVM_NEW(ovm, R1, ovm_cl_dictionary);
+  ovm_gstore(ovm, DICT, R1);
+
+  ovm_gload(ovm, R1, DICT);
+  ovm_gload(ovm, R2, KEY);
+  ovm_gload(ovm, R3, VAL);
+
+  OVM_METHOD_CALL(ovm, R0, R1, OVM_METHOD_CALL_SEL_AT_PUT, R2, R3);
   
-  inst_print(ovm, R2);
+  inst_print(ovm, R1);
 
-  OVM_METHOD_CALL(ovm, R0, R2, OVM_METHOD_CALL_SEL_DEL, R3);
+  OVM_METHOD_CALL(ovm, R0, R1, OVM_METHOD_CALL_SEL_DEL, R2);
 
-  inst_print(ovm, R2);
+  inst_print(ovm, R1);
 
 #endif
 
