@@ -25,6 +25,7 @@ enum {
   OVM_METHOD_CALL_SEL_CAR,
   OVM_METHOD_CALL_SEL_CDR,
   OVM_METHOD_CALL_SEL_CNT,
+  OVM_METHOD_CALL_SEL_DEL,
   OVM_METHOD_CALL_SEL_DIV,
   OVM_METHOD_CALL_SEL_EQUAL,
   OVM_METHOD_CALL_SEL_HASH,
@@ -107,4 +108,10 @@ const struct ovm_class ovm_cl_pair[1];
 const struct ovm_class ovm_cl_list[1];
 const struct ovm_class ovm_cl_array[1];
 const struct ovm_class ovm_cl_set[1];
+enum {
+  OVM_SET_SIZE_DFLT = 32
+};
 const struct ovm_class ovm_cl_dictionary[1];
+enum {
+  OVM_DICT_SIZE_DFLT = 32
+};

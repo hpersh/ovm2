@@ -6,7 +6,7 @@ enum {
   OVM_INST_PAGE_SIZE = 4096
 };
 
-unsigned char glob[4096], stack[4096];
+unsigned char globals[4096], stack[4096];
 
 ovm_var ovm;
 
@@ -47,7 +47,7 @@ inst_print(ovm_t ovm, unsigned src)
 int
 main(void)
 {
-  ovm_init(ovm, OVM_INST_PAGE_SIZE, glob, sizeof(glob), stack, sizeof(stack));
+  ovm_init(ovm, OVM_INST_PAGE_SIZE, globals, sizeof(globals), stack, sizeof(stack));
 
 #if 0
 
@@ -132,7 +132,7 @@ main(void)
 
 #endif
 
-#if 1
+#if 0
 
   ovm_integer_newc(ovm, R1, 10);
 
@@ -143,6 +143,42 @@ main(void)
 
   OVM_METHOD_CALL(ovm, R0, R2, OVM_METHOD_CALL_SEL_AT_PUT, R3, R4);
   
+  inst_print(ovm, R2);
+
+#endif
+
+#if 0
+
+  OVM_NEW(ovm, R2, ovm_cl_set);
+
+  ovm_integer_newc(ovm, R3, 42);
+  ovm_string_newc(ovm, R4, "The rain in Spain");
+
+  OVM_METHOD_CALL(ovm, R0, R2, OVM_METHOD_CALL_SEL_PUT, R3);
+  OVM_METHOD_CALL(ovm, R0, R2, OVM_METHOD_CALL_SEL_PUT, R4);
+  OVM_METHOD_CALL(ovm, R0, R2, OVM_METHOD_CALL_SEL_PUT, R3);
+  
+  inst_print(ovm, R2);
+
+  OVM_METHOD_CALL(ovm, R0, R2, OVM_METHOD_CALL_SEL_DEL, R3);
+
+  inst_print(ovm, R2);
+
+#endif
+
+#if 1
+
+  OVM_NEW(ovm, R2, ovm_cl_dictionary);
+
+  ovm_integer_newc(ovm, R3, 42);
+  ovm_string_newc(ovm, R4, "The rain in Spain");
+
+  OVM_METHOD_CALL(ovm, R0, R2, OVM_METHOD_CALL_SEL_AT_PUT, R3, R4);
+  
+  inst_print(ovm, R2);
+
+  OVM_METHOD_CALL(ovm, R0, R2, OVM_METHOD_CALL_SEL_DEL, R3);
+
   inst_print(ovm, R2);
 
 #endif
