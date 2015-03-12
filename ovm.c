@@ -327,13 +327,15 @@ __ovm_new(ovm_t ovm, ovm_inst_t *dst, ovm_class_t cl, unsigned argc, ...)
 static void
 _ovm_inst_new2(ovm_t ovm, ovm_inst_t *dst, ovm_class_t cl, unsigned argc, ovm_inst_t *argv)
 {
-  void *old;
+  void       *old;
+  ovm_inst_t *wp;
 
   old = ovm_falloc(ovm, 1);
+  wp = ovm->sp;
 
-  _ovm_inst_alloc(ovm, cl, &ovm->fp[-1]);
-  (*cl->init)(ovm, ovm->fp[-1], cl, argc, argv);
-  _ovm_assign(ovm, dst, ovm->fp[-1]);
+  _ovm_inst_alloc(ovm, cl, &wp[0]);
+  (*cl->init)(ovm, wp[0], cl, argc, argv);
+  _ovm_assign(ovm, dst, wp[0]);
 
   ovm_ffree(ovm, old);
 }
@@ -737,16 +739,18 @@ _ovm_string_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_
       _ovm_strval_initc(ovm, inst, 1, nn, buf);
     } else if (arg_cl == ovm_cl_pair) {
       void *old;
+      ovm_inst_t *wp;
 
       old = ovm_falloc(ovm, 5);
+      wp = ovm->sp;
 
-      _ovm_string_newc(ovm, &ovm->fp[-5], "<");
-      __ovm_new(ovm, &ovm->fp[-4], ovm_cl_string, 1, CAR(arg));
-      _ovm_string_newc(ovm, &ovm->fp[-3], ", ");
-      __ovm_new(ovm, &ovm->fp[-2], ovm_cl_string, 1, CDR(arg));
-      _ovm_string_newc(ovm, &ovm->fp[-1], ">");
+      _ovm_string_newc(ovm, &wp[0], "<");
+      __ovm_new(ovm, &wp[1], ovm_cl_string, 1, CAR(arg));
+      _ovm_string_newc(ovm, &wp[2], ", ");
+      __ovm_new(ovm, &wp[3], ovm_cl_string, 1, CDR(arg));
+      _ovm_string_newc(ovm, &wp[4], ">");
 
-      _ovm_strval_inita(ovm, inst, 5, &ovm->fp[-5]);
+      _ovm_strval_inita(ovm, inst, 5, wp);
 
       ovm_ffree(ovm, old);
     } else if (arg_cl == ovm_cl_list) {
@@ -1058,25 +1062,29 @@ _ovm_xml_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_ins
     _ovm_strval_initc(ovm, inst, 1, nn, buf);
   } else if (arg_cl == ovm_cl_pair) {
     void *old;
+    ovm_inst_t *wp;
 
     old = ovm_falloc(ovm, 4);
+    wp = ovm->sp;
 
-    _ovm_string_newc(ovm, &ovm->fp[-4], "<Pair>");
-    __ovm_new(ovm, &ovm->fp[-3], ovm_cl_xml, 1, CAR(arg));
-    __ovm_new(ovm, &ovm->fp[-2], ovm_cl_xml, 1, CDR(arg));
-    _ovm_string_newc(ovm, &ovm->fp[-1], "</Pair>");
+    _ovm_string_newc(ovm, &wp[0], "<Pair>");
+    __ovm_new(ovm, &wp[1], ovm_cl_xml, 1, CAR(arg));
+    __ovm_new(ovm, &wp[2], ovm_cl_xml, 1, CDR(arg));
+    _ovm_string_newc(ovm, &wp[3], "</Pair>");
 
-    _ovm_strval_inita(ovm, inst, 4, &ovm->fp[-4]);
+    _ovm_strval_inita(ovm, inst, 4, wp);
 
     ovm_ffree(ovm, old);
   } else if (arg_cl == ovm_cl_list) {
     unsigned n = _list_len(arg);
     unsigned nn = 1 + n + 1;
     void *old;
-    ovm_inst_t p, *q;
+    ovm_inst_t *wp, p, *q;
 
     old = ovm_falloc(ovm, nn);
-    q = ovm->sp;
+    wp = ovm->sp;
+
+    q = wp;
 
     _ovm_string_newc(ovm, q, "<List>");
     ++q;
@@ -1087,7 +1095,7 @@ _ovm_xml_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_ins
     }
     _ovm_string_newc(ovm, q, "</List>");
 
-    _ovm_strval_inita(ovm, inst, nn, ovm->sp);
+    _ovm_strval_inita(ovm, inst, nn, wp);
 
     ovm_ffree(ovm, old);
   } else {
@@ -1302,18 +1310,20 @@ _ovm_dptr_equal(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   void     *old;
   unsigned f;
+  ovm_inst_t *wp;
 
   OVM_ASSERT(_ovm_is_kind_of(argv[0], ovm_cl_dptr));
   OVM_ASSERT(argc == 1);
   OVM_ASSERT(_ovm_is_kind_of(argv[1], ovm_cl_dptr));
 
   old = ovm_falloc(ovm, 1);
+  wp = ovm->sp;
 
-  __ovm_method_call(ovm, &ovm->fp[-1], CAR(argv[0]), OVM_METHOD_CALL_SEL_EQUAL, 1, CAR(argv[1]));
-  f = BOOLVAL(ovm->fp[-1]);
+  __ovm_method_call(ovm, &wp[0], CAR(argv[0]), OVM_METHOD_CALL_SEL_EQUAL, 1, CAR(argv[1]));
+  f = BOOLVAL(wp[0]);
   if (f) {
-    __ovm_method_call(ovm, &ovm->fp[-1], CDR(argv[0]), OVM_METHOD_CALL_SEL_EQUAL, 1, CDR(argv[1]));
-    f = BOOLVAL(ovm->fp[-1]);
+    __ovm_method_call(ovm, &wp[0], CDR(argv[0]), OVM_METHOD_CALL_SEL_EQUAL, 1, CDR(argv[1]));
+    f = BOOLVAL(wp[0]);
   }
 
   ovm_ffree(ovm, old);
@@ -1326,16 +1336,18 @@ _ovm_dptr_hash(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   void     *old;
   unsigned h;
+  ovm_inst_t *wp;
 
   OVM_ASSERT(_ovm_is_kind_of(argv[0], ovm_cl_dptr));
   OVM_ASSERT(argc == 0);
 
   old = ovm_falloc(ovm, 1);
+  wp = ovm->sp;
 
-  __ovm_method_call(ovm, &ovm->fp[-1], CAR(argv[0]), OVM_METHOD_CALL_SEL_HASH, 0);
-  h = INTVAL(ovm->fp[-1]);
-  __ovm_method_call(ovm, &ovm->fp[-1], CDR(argv[0]), OVM_METHOD_CALL_SEL_HASH, 0);
-  h += INTVAL(ovm->fp[-1]);
+  __ovm_method_call(ovm, &wp[0], CAR(argv[0]), OVM_METHOD_CALL_SEL_HASH, 0);
+  h = INTVAL(wp[0]);
+  __ovm_method_call(ovm, &wp[0], CDR(argv[0]), OVM_METHOD_CALL_SEL_HASH, 0);
+  h += INTVAL(wp[0]);
 
   ovm_ffree(ovm, old);
 
@@ -1585,6 +1597,90 @@ const struct ovm_class ovm_cl_array[1] = {
     .inst_method_tbl = {
       [OVM_METHOD_CALL_SEL_AT]     = _ovm_array_at,
       [OVM_METHOD_CALL_SEL_AT_PUT] = _ovm_array_at_put
+    }
+  }
+};
+
+/***************************************************************************/
+
+static unsigned
+round_up_to_power_of_2(unsigned i)
+{
+  unsigned result, j, sh;
+
+  OVM_ASSERT(i > 0);
+
+  for (sh = 0;;) {
+    j = i & (i - 1);
+    if (j == 0)  return (i << sh);
+    i = j;
+    sh = 1;
+  }
+}
+
+static ovm_inst_t *
+_set_find(ovm_t ovm, ovm_inst_t set, ovm_inst_t val, ovm_inst_t **b)
+{
+  void *old;
+
+  old = ovm_falloc(ovm, 1);
+
+  __ovm_method_call(ovm, &ovm->fp[-1], val, OVM_METHOD_CALL_SEL_HASH, 0);
+
+
+  ovm_ffree(ovm, old);
+}
+
+static void
+_ovm_set_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_inst_t *argv)
+{
+  if (argc > 0) {
+    ovm_inst_t  arg = argv[0];
+    ovm_class_t arg_cl = _ovm_inst_of(arg);
+
+  }
+
+  _ovm_init_parent(ovm, inst, cl, argc, argv);
+}
+
+const struct ovm_class ovm_cl_set[1] = {
+  { .name   = "Set",
+    .parent = ovm_cl_array,
+    .new    = _ovm_inst_new2,
+    .init   = _ovm_set_init,
+    .walk   = _ovm_walk_parent,
+    .free   = _ovm_free_parent,
+    .inst_method_tbl = {
+      [OVM_METHOD_CALL_SEL_AT]  = _ovm_set_at,
+      [OVM_METHOD_CALL_SEL_PUT] = _ovm_set_put
+    }
+  }
+};
+
+/***************************************************************************/
+
+static void
+_ovm_dict_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_inst_t *argv)
+{
+  if (argc > 0) {
+    ovm_inst_t  arg = argv[0];
+    ovm_class_t arg_cl = _ovm_inst_of(arg);
+
+  }
+
+  _ovm_init_parent(ovm, inst, cl, argc, argv);
+}
+
+const struct ovm_class ovm_cl_dictionary[1] = {
+  { .name   = "Dictionary",
+    .parent = ovm_cl_set,
+    .new    = _ovm_inst_new2,
+    .init   = _ovm_dict_init,
+    .walk   = _ovm_walk_parent,
+    .free   = _ovm_free_parent,
+    .inst_method_tbl = {
+      [OVM_METHOD_CALL_SEL_AT]     = _ovm_dict_at,
+      [OVM_METHOD_CALL_SEL_AT_PUT] = _ovm_dict_at_put
     }
   }
 };
