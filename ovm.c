@@ -1897,6 +1897,13 @@ _ovm_arrayval_init(ovm_t ovm, ovm_inst_t inst, unsigned size)
   memset(ARRAYVAL(inst)->data, 0, size * sizeof(ARRAYVAL(inst)->data[0]));
 }
 
+void
+_ovm_array_newc(ovm_t ovm, ovm_inst_t *dst, unsigned size)
+{
+  _ovm_inst_alloc(ovm, ovm_cl_array, dst);
+  _ovm_arrayval_init(ovm, *dst, size);
+}
+
 static int
 _xml_parse_array2(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t inst)
 {
@@ -2816,6 +2823,16 @@ ovm_bitmap_newc(ovm_t ovm, unsigned dst, unsigned size, ovm_bmval_unit_t *data)
   if (dst == 0)  return;
   
   _ovm_bitmap_newc(ovm, &ovm->regs[dst], size, data);
+}
+
+void
+ovm_array_newc(ovm_t ovm, unsigned dst, unsigned size)
+{
+  REG_CHK(dst);
+
+  if (dst == 0)  return;
+
+  _ovm_array_newc(ovm, &ovm->regs[dst], size);
 }
 
 void

@@ -16,10 +16,14 @@ struct ovm_bmval {
   const ovm_bmval_unit_t *data;
 };
 
+/**
+ * @brief Method call selectors
+ */
 enum {
   OVM_METHOD_CALL_SEL_ADD,
   OVM_METHOD_CALL_SEL_AND,
   OVM_METHOD_CALL_SEL_AT,
+  OVM_METHOD_CALL_SEL_AT_LEN,
   OVM_METHOD_CALL_SEL_AT_LEN_PUT,
   OVM_METHOD_CALL_SEL_AT_PUT,
   OVM_METHOD_CALL_SEL_CAR,
@@ -46,11 +50,54 @@ typedef struct ovm *ovm_t;
 struct ovm_class;
 typedef const struct ovm_class *ovm_class_t;
 
+/**
+ * @brief Initialize a virtual machine
+ *
+ * @param[in] ovm            Virtual machine
+ * @param[in] inst_page_size Size (in bytes) of an instance page
+ * @param[in] glob           Start of global storage area
+ * @param[in] glob_size      Size (in bytes) of global storage area
+ * @param[in] stack          Start of stack storage area
+ * @param[in] stack_size     Size (in bytes) of stack storage area
+ */
 void ovm_init(ovm_t ovm, unsigned inst_page_size, void *glob, unsigned glob_size, void *stack, unsigned stack_size);
 
-unsigned    ovm_is_nil(ovm_t ovm, unsigned src);
+/**
+ * @brief Test if a register contains nil
+ *
+ * For a given VM register, return 1 if the register contains nil, otherwise return 0.
+ *
+ * @param[in] ovm Virtual machine
+ * @param[in] src Source register
+ *
+ * @return 0 iff given register contains nil
+ */
+unsigned ovm_is_nil(ovm_t ovm, unsigned src);
+
+/**
+ * @brief Get class of object
+ *
+ * Return the class of the object in the given VM register.
+ *
+ * @param[in] ovm Virtual machine
+ * @param[in] src Source register
+ *
+ * @return Class of object in given register
+ */
 ovm_class_t ovm_inst_of(ovm_t ovm, unsigned src);
+
+/**
+ * @brief Get name of class
+ *
+ * Return the printable name of the given class.
+ *
+ * @param[in] cl Class
+ *
+ * @return Pointer to name (character string) of class
+ */
 const char *ovm_class_name(ovm_class_t cl);
+
+
 ovm_class_t ovm_class_parent(ovm_class_t cl);
 unsigned    ovm_is_subclass_of(ovm_class_t cl1, ovm_class_t cl2);
 unsigned    ovm_is_kind_of(ovm_t ovm, unsigned src, ovm_class_t cl);
@@ -81,6 +128,7 @@ void ovm_float_newc(ovm_t ovm, unsigned dst, ovm_floatval_t val);
 void ovm_string_newc(ovm_t ovm, unsigned dst, char *s);
 void ovm_xml_newc(ovm_t ovm, unsigned dst, char *s);
 void ovm_bitmap_newc(ovm_t ovm, unsigned dst, unsigned size, ovm_bmval_unit_t *data);
+void ovm_array_newc(ovm_t ovm, unsigned dst, unsigned size);
 
 union ovm_cval {
   ovm_boolval_t     boolval;
@@ -111,9 +159,9 @@ const struct ovm_class ovm_cl_list[1];
 const struct ovm_class ovm_cl_array[1];
 const struct ovm_class ovm_cl_set[1];
 enum {
-  OVM_SET_SIZE_DFLT = 32
+  OVM_SET_SIZE_DFLT = 32	/**< Default (hash table) size for Set */
 };
 const struct ovm_class ovm_cl_dictionary[1];
 enum {
-  OVM_DICT_SIZE_DFLT = 32
+  OVM_DICT_SIZE_DFLT = 32	/**< Default (hash table) size for Dictionary */
 };

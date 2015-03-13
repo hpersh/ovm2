@@ -228,8 +228,7 @@ main(void)
   OVM_NEW(ovm, R2, ovm_cl_array, R1);
   inst_print(ovm, R2);
 
-  ovm_integer_newc(ovm, R1, 10);
-  OVM_NEW(ovm, R2, ovm_cl_array, R1);
+  ovm_array_newc(ovm, R2, 10);
 
   ovm_integer_newc(ovm, R1, 3);
   ovm_integer_newc(ovm, R3, 42);
