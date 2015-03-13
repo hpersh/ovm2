@@ -224,6 +224,26 @@ main(void)
   OVM_NEW(ovm, R2, ovm_cl_list, R1);
   inst_print(ovm, R2);
 
+  ovm_xml_newc(ovm, R1, "  <Array> <Boolean> 1  </Boolean><Integer>13</Integer></Array> ");
+  OVM_NEW(ovm, R2, ovm_cl_array, R1);
+  inst_print(ovm, R2);
+
+  ovm_integer_newc(ovm, R1, 10);
+  OVM_NEW(ovm, R2, ovm_cl_array, R1);
+
+  ovm_integer_newc(ovm, R1, 3);
+  ovm_integer_newc(ovm, R3, 42);
+  OVM_METHOD_CALL(ovm, R0, R2, OVM_METHOD_CALL_SEL_AT_PUT, R1, R3);
+
+  inst_print(ovm, R2);
+
+  OVM_NEW(ovm, R3, ovm_cl_xml, R2);
+  inst_print(ovm, R3);
+
+  OVM_NEW(ovm, R4, ovm_cl_array, R3);
+  inst_print(ovm, R4);
+  
+
 #endif
 
   ovm_stats_print(ovm);

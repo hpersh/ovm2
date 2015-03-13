@@ -250,6 +250,11 @@ _xml_end_tag_find(struct ovm_strval *sv, unsigned n, char *s)
       for (t = (char *) sv->data - 1, k = 1;; ++k) {
 	c = sv_getc(sv);
 	if (c < 0)  return (-1);
+	if (c == '/') {
+	  c = sv_getc(sv);
+	  if (c != '>')  return (-1);
+	  break;
+	}
 	if (c == '>') {
 	  if (_xml_end_tag_find(sv, k, t) < 0)  return (-1);
 	  break;
@@ -1377,6 +1382,11 @@ _xml_parse(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t *dst)
 
   sv_spskip(pb);
 
+  if (sv_strcmp(pb, 6, "<nil/>")) {
+    _ovm_assign(ovm, dst, 0);
+    return (0);
+  }
+
   if (sv_strcmp(pb, 9, "<Boolean>")) {
     return (__xml_parse(ovm, pb, dst, ovm_cl_boolean, _xml_parse_bool2));
   }
@@ -1887,6 +1897,58 @@ _ovm_arrayval_init(ovm_t ovm, ovm_inst_t inst, unsigned size)
   memset(ARRAYVAL(inst)->data, 0, size * sizeof(ARRAYVAL(inst)->data[0]));
 }
 
+static int
+_xml_parse_array2(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t inst)
+{
+  int               result = -1;
+  struct ovm_strval pb2[1], pb3[1];
+  void              *old;
+  ovm_inst_t        *wp, *p;
+  unsigned          size;
+
+  *pb2 = *pb;
+
+  if (_xml_end_tag_find(pb, 5, "Array") < 0)  return (-1);
+
+  sv_trim(pb2, 8 + pb->size);
+
+  *pb3 = *pb2;
+
+  old = ovm_falloc(ovm, 1);
+  wp = ovm->sp;
+
+  for (size = 0;; ++size) {
+    sv_spskip(pb3);
+    if (sv_eof(pb3))  break;
+
+    if (_xml_parse(ovm, pb3, &wp[0]) < 0)  goto done;
+  }
+
+  _ovm_arrayval_alloc(ovm, inst, size);
+
+  for (p = ARRAYVAL(inst)->data; ; ++p) {
+    sv_spskip(pb2);
+    if (sv_eof(pb2))  break;
+
+    if (_xml_parse(ovm, pb2, &wp[0]) < 0)  goto done;
+    *p = _ovm_inst_retain(wp[0]);
+  }
+
+  result = 0;
+
+ done:  
+  ovm_ffree(ovm, old);
+  
+  return (result);
+}
+
+static int
+_xml_parse_array(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t inst)
+{
+  sv_spskip(pb);
+  return (!sv_strcmp(pb, 7, "<Array>") ? -1 : _xml_parse_array2(ovm, pb, inst));
+}
+
 static void
 _ovm_array_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_inst_t *argv)
 {
@@ -1898,6 +1960,13 @@ _ovm_array_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_i
       OVM_ASSERT(INTVAL(arg) >= 0);
 
       _ovm_arrayval_init(ovm, inst, INTVAL(arg));
+    } else if (arg_cl == ovm_cl_xml) {
+      struct ovm_strval pb[1];
+
+      sv_init(pb, STRVAL(arg)->size - 1, STRVAL(arg)->data);
+      OVM_ASSERT(_xml_parse_array(ovm, pb, inst) == 0);
+      sv_spskip(pb);
+      OVM_ASSERT(sv_eof(pb));
     } else if (arg_cl == ovm_cl_list) {
       unsigned   n = _list_len(arg);
       ovm_inst_t *p, q;
