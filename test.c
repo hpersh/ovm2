@@ -210,8 +210,11 @@ main(void)
 
   ovm_xml_newc(ovm, R1, "  <Boolean>   1 </Boolean>     ");
   OVM_NEW(ovm, R2, ovm_cl_boolean, R1);
-  OVM_NEW(ovm, R3, ovm_cl_xml, R2);
-  inst_print(ovm, R3);
+  inst_print(ovm, R2);
+
+  ovm_xml_newc(ovm, R1, "  <Integer>   42 </Integer>     ");
+  OVM_NEW(ovm, R2, ovm_cl_integer, R1);
+  inst_print(ovm, R2);
 
 #endif
 
