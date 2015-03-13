@@ -206,7 +206,7 @@ main(void)
 
 #endif
 
-#if 1
+#if 0
 
   ovm_xml_newc(ovm, R1, "  <Boolean>   1 </Boolean>     ");
   OVM_NEW(ovm, R2, ovm_cl_boolean, R1);
@@ -214,6 +214,14 @@ main(void)
 
   ovm_xml_newc(ovm, R1, "  <Integer>   42 </Integer>     ");
   OVM_NEW(ovm, R2, ovm_cl_integer, R1);
+  inst_print(ovm, R2);
+
+#endif
+
+#if 1
+  
+  ovm_xml_newc(ovm, R1, "  <List> <Boolean> 1  </Boolean><Integer>13</Integer></List> ");
+  OVM_NEW(ovm, R2, ovm_cl_list, R1);
   inst_print(ovm, R2);
 
 #endif
