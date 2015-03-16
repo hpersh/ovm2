@@ -165,3 +165,44 @@ const struct ovm_class ovm_cl_dictionary[1];
 enum {
   OVM_DICT_SIZE_DFLT = 32	/**< Default (hash table) size for Dictionary */
 };
+
+enum {
+  OVM_EXCEPT_CODE_BAD_VALUE = 1
+};
+
+typedef struct ovm_except_frame ovm_except_frame_var[1];
+
+#define OVM_EXCEPT_FRAME_BEGIN(_ovm, _xfr) \
+{ \
+  _ovm_except_frame_begin((_ovm), (_xfr)); \
+  (_ovm)->xfp->code = setjmp((_ovm)->xfp->jmp_buf);
+
+#define OVM_EXCEPT_TRY_BEGIN(_ovm) \
+  if ((_ovm)->xfp->code == 0) {
+ 
+#define OVM_EXCEPT_TRY_END(_ovm) \
+  }
+ 
+#define OVM_EXCEPT_CODE(_ovm)  ((_ovm)->xfp->code)
+
+#define OVM_EXCEPT_CATCH_BEGIN(_ovm, _cond) \
+  if ((_ovm)->xfp->code != 0 && !(_ovm)->xfp->caughtf && (_cond)) {
+ 
+#define OVM_EXCEPT_CATCH_END(_ovm) \
+    (_ovm)->xfp->caughtf = 1; \
+  }
+ 
+#define OVM_EXCEPT_FINALLY_BEGIN(_ovm) \
+  if ((_ovm)->xfp->code == 0) {
+ 
+#define OVM_EXCEPT_FINALLY_END(_ovm) \
+  }
+ 
+#define OVM_EXCEPT_FRAME_END(_ovm) \
+  _ovm_except_frame_end(_ovm); \
+}
+
+#define OVM_EXCEPT_RAISE(_ovm, _code, _src) \
+  (_ovm_except_raise((_ovm), (_code), (_src)))
+
+void ovm_except_arg_get(ovm_t ovm, unsigned dst);

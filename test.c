@@ -48,6 +48,7 @@ inst_print(ovm_t ovm, unsigned src)
   ovm_pop(ovm, src);
 }
 
+
 int
 main(void)
 {
@@ -218,7 +219,7 @@ main(void)
 
 #endif
 
-#if 1
+#if 0
   
   ovm_xml_newc(ovm, R1, "  <List> <Boolean> 1  </Boolean><Integer>13</Integer></List> ");
   OVM_NEW(ovm, R2, ovm_cl_list, R1);
@@ -242,6 +243,42 @@ main(void)
   OVM_NEW(ovm, R4, ovm_cl_array, R3);
   inst_print(ovm, R4);
   
+
+#endif
+
+#if 1
+
+  void foo(void)
+    {
+      ovm_xml_newc(ovm, R1, "  <Boolean> x0  </Boolean>    ");
+      OVM_NEW(ovm, R2, ovm_cl_boolean, R1);
+      inst_print(ovm, R2);
+    }
+
+
+
+  ovm_except_frame_var xfr;
+
+  OVM_EXCEPT_FRAME_BEGIN(ovm, xfr) {
+    OVM_EXCEPT_TRY_BEGIN(ovm) {
+      foo();
+    } OVM_EXCEPT_TRY_END(ovm);
+
+    OVM_EXCEPT_CATCH_BEGIN(ovm, OVM_EXCEPT_CODE(ovm) == 1) {
+      printf("Got bad value: ");
+      ovm_except_arg_get(ovm, R1);
+      inst_print(ovm, R1);
+    } OVM_EXCEPT_CATCH_END(ovm);
+
+    OVM_EXCEPT_CATCH_BEGIN(ovm, 1) {
+      printf("Uncaught exception (%d)\n", xfr->code);
+    } OVM_EXCEPT_CATCH_END(ovm);
+
+    OVM_EXCEPT_FINALLY_BEGIN(ovm) {
+      printf("No exception\n");
+    } OVM_EXCEPT_FINALLY_END(ovm);
+
+  } OVM_EXCEPT_FRAME_END(ovm);
 
 #endif
 

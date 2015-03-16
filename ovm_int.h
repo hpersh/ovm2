@@ -64,6 +64,23 @@ struct ovm_inst {
   } val[1];
 };
 
+struct ovm_except_frame {
+  struct ovm_except_frame *prev;
+  
+  ovm_inst_t    *sp, *fp;
+  int           code;
+  ovm_inst_t    arg;
+  unsigned char caughtf;
+  jmp_buf       jmp_buf;
+};
+
+void _ovm_except_frame_begin(ovm_t ovm, struct ovm_except_frame *xfr);
+void _ovm_except_raise(ovm_t ovm, int code, unsigned src);
+void _ovm_except_reraise(ovm_t ovm);
+void _ovm_expcet_frame_end(ovm_t ovm);
+
+
+
 struct ovm {
   struct list inst_page_list[1], inst_free_list[1];
   unsigned inst_page_size;
@@ -75,6 +92,8 @@ struct ovm {
 
   ovm_inst_t regs[OVM_NUM_REGS];
   ovm_inst_t *sp, *fp;
+  ovm_inst_t except_arg;
+  struct ovm_except_frame *xfp;
 
   struct {
     unsigned long long alloc_cnt, alloc_bytes;
@@ -86,3 +105,4 @@ struct ovm {
 
 void _ovm_new(ovm_t ovm, unsigned dst, ovm_class_t cl, unsigned argc, ...);
 void _ovm_method_call(ovm_t ovm, unsigned dst, unsigned recvr, ovm_class_t cl, unsigned sel, unsigned argc, ...);
+

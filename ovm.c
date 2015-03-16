@@ -508,6 +508,41 @@ _ovm_free_parent(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl)
   (*p->free)(ovm, inst, p);
 }
 
+static void
+_ovm_stk_stats_up(ovm_t ovm, unsigned n)
+{
+  if ((ovm->stats->stack_depth += n) > ovm->stats->stack_depth_max) {
+    ovm->stats->stack_depth_max = ovm->stats->stack_depth;
+  }
+}
+
+static void
+_ovm_stk_stats_dn(ovm_t ovm, unsigned n)
+{
+  ovm->stats->stack_depth -= n;
+}
+
+static void
+__ovm_except_raise(ovm_t ovm, int code, ovm_inst_t arg)
+{
+  struct ovm_except_frame *xfr = ovm->xfp;
+  ovm_inst_t              *p;
+  unsigned                n;
+
+  OVM_ASSERT(xfr != 0);
+  OVM_ASSERT(code != 0);
+
+  for (n = 0, p = ovm->sp; p < xfr->sp; ++p, ++n) {
+    _ovm_inst_release(ovm, *p);
+  }
+  _ovm_stk_stats_dn(ovm, n);
+  ovm->fp = xfr->fp;
+
+  _ovm_assign(ovm, &xfr->arg, arg);
+
+  longjmp(xfr->jmp_buf, code);
+}
+
 /***************************************************************************/
 
 static void
@@ -604,7 +639,9 @@ _ovm_boolean_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm
       struct ovm_strval pb[1];
       
       sv_init(pb, STRVAL(arg)->size - 1, STRVAL(arg)->data);
-      OVM_ASSERT(_xml_parse_bool(ovm, pb, inst) == 0);
+      if (_xml_parse_bool(ovm, pb, inst) < 0) {
+	__ovm_except_raise(ovm, OVM_EXCEPT_CODE_BAD_VALUE, arg);
+      }
       sv_spskip(pb);
       OVM_ASSERT(sv_eof(pb));
     } else {
@@ -2534,20 +2571,6 @@ ovm_move(ovm_t ovm, unsigned dst, unsigned src)
   _ovm_assign(ovm, &ovm->regs[dst], ovm->regs[src]);
 }
 
-static void
-_ovm_stk_stats_up(ovm_t ovm, unsigned n)
-{
-  if ((ovm->stats->stack_depth += n) > ovm->stats->stack_depth_max) {
-    ovm->stats->stack_depth_max = ovm->stats->stack_depth;
-  }
-}
-
-static void
-_ovm_stk_stats_dn(ovm_t ovm, unsigned n)
-{
-  ovm->stats->stack_depth -= n;
-}
-
 void
 ovm_push(ovm_t ovm, unsigned src)
 {
@@ -2855,6 +2878,72 @@ ovm_cval_get(ovm_t ovm, ovm_cval_t cval, unsigned src)
   } else {
     OVM_ASSERT(0);
   }
+}
+
+void
+_ovm_except_frame_begin(ovm_t ovm, struct ovm_except_frame *xfr)
+{
+  memset(xfr, 0, sizeof(*xfr));
+
+  xfr->sp = ovm->sp;
+  xfr->fp = ovm->fp;
+
+  xfr->prev = ovm->xfp;
+  ovm->xfp = xfr;
+}
+
+void
+_ovm_except_reraise(ovm_t ovm)
+{
+  struct ovm_except_frame *xfr = ovm->xfp, *pxfr;
+  ovm_inst_t              *p;
+  unsigned                n;
+
+  OVM_ASSERT(xfr != 0);
+  pxfr = xfr->prev;
+  OVM_ASSERT(pxfr != 0);
+
+  for (n = 0, p = ovm->sp; p < pxfr->sp; ++p, ++n) {
+    _ovm_inst_release(ovm, *p);
+  }
+  _ovm_stk_stats_dn(ovm, n);
+  ovm->fp = pxfr->fp;
+
+  _ovm_assign(ovm, &pxfr->arg, xfr->arg);
+  _ovm_inst_release(ovm, xfr->arg);
+
+  ovm->xfp = pxfr;
+
+  longjmp(pxfr->jmp_buf, xfr->code);
+}
+
+void
+_ovm_except_raise(ovm_t ovm, int code, unsigned src)
+{
+  REG_CHK(src);
+
+  __ovm_except_raise(ovm, code, ovm->regs[src]);
+}
+
+void
+_ovm_except_frame_end(ovm_t ovm)
+{
+  struct ovm_except_frame *xfr = ovm->xfp;
+
+  if (xfr->code != 0 && !xfr->caughtf)  _ovm_except_reraise(ovm);
+  
+  _ovm_inst_release(ovm, xfr->arg);
+
+  ovm->xfp = xfr->prev;
+}
+
+void
+ovm_except_arg_get(ovm_t ovm, unsigned dst)
+{
+  OVM_ASSERT(ovm->xfp);
+  REG_CHK(dst);
+
+  OVM_CASSIGN(ovm, &ovm->regs[dst], ovm->xfp->arg);
 }
 
 void
