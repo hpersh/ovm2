@@ -141,7 +141,9 @@ typedef union ovm_cval *ovm_cval_t, ovm_cval_var[1];
 
 void ovm_cval_get(ovm_t ovm, ovm_cval_t cval, unsigned src);
 
+#ifndef NDEBUG
 void ovm_stats_print(ovm_t ovm);
+#endif
 
 #include "ovm_int.h"
 

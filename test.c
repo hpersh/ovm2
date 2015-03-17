@@ -71,13 +71,13 @@ main(void)
 
 #endif
 
-#if 0
+#if 1
   unsigned n;
 
   ovm_integer_newc(ovm, R1, 0);
   ovm_integer_newc(ovm, R2, 1);
 
-  for (n = 1000000000; n; --n) {
+  for (n = 100000000; n; --n) {
     OVM_METHOD_CALL(ovm, R1, R1, OVM_METHOD_CALL_SEL_ADD, R2);
   }
 
@@ -246,7 +246,7 @@ main(void)
 
 #endif
 
-#if 1
+#if 0
 
   void foo(void)
     {
@@ -280,7 +280,9 @@ main(void)
 
 #endif
 
+#ifndef NDEBUG
   ovm_stats_print(ovm);
+#endif
 
   return (0);
 }

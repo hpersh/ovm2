@@ -98,12 +98,14 @@ struct ovm {
   ovm_inst_t except_arg;
   struct ovm_except_frame *xfp;
 
+#ifndef NDEBUG
   struct {
     unsigned long long alloc_cnt, alloc_bytes;
     unsigned long long free_cnt, free_bytes;
     unsigned long long bytes_in_use, bytes_in_use_max;
     unsigned long long stack_depth, stack_depth_max;
   } stats[1];
+#endif
 };
 
 void _ovm_new(ovm_t ovm, unsigned dst, ovm_class_t cl, unsigned argc, ...);

@@ -17,8 +17,14 @@
 
 #define REG_CHK(r)  OVM_ASSERT((r) < ARRAY_SIZE(ovm->regs))
 
+#define PUBLIC
+#ifndef NDEBUG
+#define PRIVATE
+#else
+#define PRIVATE static
+#endif
 
-static const unsigned crc32_tbl[] = {
+PRIVATE const unsigned crc32_tbl[] = {
 	0x00000000, 0x77073096, 0xee0e612c, 0x990951ba, 0x076dc419, 0x706af48f,
 	0xe963a535, 0x9e6495a3,	0x0edb8832, 0x79dcb8a4, 0xe0d5e91e, 0x97d2d988,
 	0x09b64c2b, 0x7eb17cbd, 0xe7b82d07, 0x90bf1d91, 0x1db71064, 0x6ab020f2,
@@ -64,13 +70,13 @@ static const unsigned crc32_tbl[] = {
 	0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d
 };
 
-static void
+PRIVATE void
 crc32_init(unsigned *r)
 {
   *r = ~0;
 }
 
-static unsigned
+PRIVATE unsigned
 crc32_sh(unsigned *r, void *buf, unsigned n)
 {
   unsigned char *p = (unsigned char *) buf;
@@ -80,55 +86,55 @@ crc32_sh(unsigned *r, void *buf, unsigned n)
   }
 }
 
-static unsigned
+PRIVATE unsigned
 crc32_get(unsigned *r)
 {
   return (~*r);
 }
 
-static inline void
+PRIVATE inline void
 list_init(struct list *li)
 {
   li->prev = li->next = li;
 }
 
-static inline struct list *
+PRIVATE inline struct list *
 list_end(struct list *li)
 {
   return (li);
 }
 
-static inline unsigned
+PRIVATE inline unsigned
 list_empty(struct list *li)
 {
   return (li->next == list_end(li));
 }
 
-static inline struct list *
+PRIVATE inline struct list *
 list_first(struct list *li)
 {
   return (li->next);
 }
 
-static inline struct list *
+PRIVATE inline struct list *
 list_last(struct list *li)
 {
   return (li->prev);
 }
 
-static inline struct list *
+PRIVATE inline struct list *
 list_prev(struct list *nd)
 {
   return (nd->prev);
 }
 
-static inline struct list *
+PRIVATE inline struct list *
 list_next(struct list *nd)
 {
   return (nd->next);
 }
 
-static inline struct list *
+PRIVATE inline struct list *
 list_insert(struct list *node, struct list *before)
 {
   struct list *p = before->prev;
@@ -139,7 +145,7 @@ list_insert(struct list *node, struct list *before)
   return (p->next = before->prev = node);
 }
 
-static inline struct list *
+PRIVATE inline struct list *
 list_erase(struct list *node)
 {
   struct list *p = node->prev, *q = node->next;
@@ -150,7 +156,7 @@ list_erase(struct list *node)
   return (node);
 }
 
-static int
+PRIVATE int
 slice(ovm_intval_t *ofs, ovm_intval_t *len, unsigned size)
 {
   if (*ofs < 0)  *ofs = (ovm_intval_t) size + *ofs;
@@ -162,28 +168,30 @@ slice(ovm_intval_t *ofs, ovm_intval_t *len, unsigned size)
   return (*ofs < 0 || (*ofs + *len) > size ? -1 : 0);
 }
 
-static void
+PRIVATE void
 sv_init(struct ovm_strval *sv, unsigned size, const char *data)
 {
   sv->size = size;
   sv->data = data;
 }
 
-static unsigned
+PRIVATE unsigned
 sv_eof(struct ovm_strval *sv)
 {
   return (sv->size == 0);
 }
 
-static void
-sv_trim(struct ovm_strval *sv, unsigned n)
+PRIVATE void
+sv_trim(struct ovm_strval *sv1, struct ovm_strval *sv2, unsigned n)
 {
-  OVM_ASSERT(n <= sv->size);
+  n += sv2->size;
 
-  sv->size -= n;
+  OVM_ASSERT(n <= sv1->size);
+
+  sv1->size -= n;
 }
 
-static int
+PRIVATE int
 sv_getc(struct ovm_strval *sv)
 {
   char c;
@@ -197,7 +205,7 @@ sv_getc(struct ovm_strval *sv)
   return (c);
 }
 
-static unsigned
+PRIVATE unsigned
 sv_strcmp(struct ovm_strval *sv, unsigned n, char *s)
 {
   if (n > sv->size || memcmp(sv->data, s, n) != 0)  return (0);
@@ -206,13 +214,13 @@ sv_strcmp(struct ovm_strval *sv, unsigned n, char *s)
   return (1);
 }
 
-static int
+PRIVATE int
 sv_ungetc(struct ovm_strval *sv)
 {
   --sv->data;  ++sv->size;
 }
 
-static void
+PRIVATE void
 sv_spskip(struct ovm_strval *sv)
 {
   char c;
@@ -223,7 +231,7 @@ sv_spskip(struct ovm_strval *sv)
   }
 }
 
-static int
+PRIVATE int
 _xml_end_tag_find(struct ovm_strval *sv, unsigned n, char *s)
 {
   int      c;
@@ -255,35 +263,37 @@ _xml_end_tag_find(struct ovm_strval *sv, unsigned n, char *s)
   }
 }
 
-static inline ovm_class_t
+PRIVATE inline ovm_class_t
 _ovm_inst_of(ovm_inst_t inst)
 {
   return (inst == 0 ? ovm_cl_object : inst->inst_of);
 }
 
-static unsigned
+PRIVATE unsigned
 _ovm_is_kind_of(ovm_inst_t inst, ovm_class_t cl)
 {
   return (ovm_is_subclass_of(_ovm_inst_of(inst), cl));
 }
 
-static void *
+PRIVATE void *
 _ovm_malloc(ovm_t ovm, unsigned size)
 {
   void *result = malloc(size);
 
   OVM_ASSERT(result != 0);
 
+#ifndef NDEBUG
   ++ovm->stats->alloc_cnt;
   ovm->stats->alloc_bytes += size;
   if ((ovm->stats->bytes_in_use += size) > ovm->stats->bytes_in_use_max) {
     ovm->stats->bytes_in_use_max = ovm->stats->bytes_in_use;
   }
+#endif
 
   return (result);
 }
 
-static void *
+PRIVATE void *
 _ovm_zmalloc(ovm_t ovm, unsigned size)
 {
   void *result = _ovm_malloc(ovm, size);
@@ -293,17 +303,19 @@ _ovm_zmalloc(ovm_t ovm, unsigned size)
   return (result);
 }
 
-static void
+PRIVATE void
 _ovm_free(ovm_t ovm, unsigned size, void *p)
 {
   if (p != 0)  free(p);
 
+#ifndef NDEBUG
   ++ovm->stats->free_cnt;
   ovm->stats->free_bytes += size;
   ovm->stats->bytes_in_use -= size;
+#endif
 }
 
-static ovm_inst_t
+PRIVATE ovm_inst_t
 _ovm_inst_retain(ovm_inst_t inst)
 {
   if (inst != 0) {
@@ -314,9 +326,9 @@ _ovm_inst_retain(ovm_inst_t inst)
   return (inst);
 }
 
-static void _ovm_inst_free(ovm_t ovm, ovm_inst_t inst);
+PRIVATE void _ovm_inst_free(ovm_t ovm, ovm_inst_t inst);
 
-static void
+PRIVATE void
 _ovm_inst_release(ovm_t ovm, ovm_inst_t inst)
 {
   if (inst == 0)  return;
@@ -324,7 +336,7 @@ _ovm_inst_release(ovm_t ovm, ovm_inst_t inst)
   if (--inst->ref_cnt == 0)  _ovm_inst_free(ovm, inst);
 }
 
-static void
+PRIVATE void
 __ovm_assign(ovm_t ovm, ovm_inst_t *dst, ovm_inst_t src)
 {
   ovm_inst_t temp;
@@ -334,7 +346,7 @@ __ovm_assign(ovm_t ovm, ovm_inst_t *dst, ovm_inst_t src)
   _ovm_inst_release(ovm, temp);
 }
 
-static void
+PRIVATE void
 _ovm_assign(ovm_t ovm, ovm_inst_t *dst, ovm_inst_t src)
 {
   __ovm_assign(ovm, dst, _ovm_inst_retain(src));
@@ -343,7 +355,7 @@ _ovm_assign(ovm_t ovm, ovm_inst_t *dst, ovm_inst_t src)
 #define OVM_CASSIGN(_ovm, _dst, _x) \
   do { if (_dst)  _ovm_assign((_ovm), (_dst), (_x)); } while (0)
 
-static void
+PRIVATE void
 _ovm_inst_alloc(ovm_t ovm, ovm_class_t cl, ovm_inst_t *dst)
 {
   struct list     *p;
@@ -376,7 +388,7 @@ _ovm_inst_alloc(ovm_t ovm, ovm_class_t cl, ovm_inst_t *dst)
   _ovm_assign(ovm, dst, r);
 }
 
-static void
+PRIVATE void
 _ovm_inst_free(ovm_t ovm, ovm_inst_t inst)
 {
   ovm_class_t cl = _ovm_inst_of(inst);
@@ -385,7 +397,7 @@ _ovm_inst_free(ovm_t ovm, ovm_inst_t inst)
   (*cl->free)(ovm, inst, cl);
 }
 
-static void
+PRIVATE void
 _ovm_new_run(ovm_t ovm, ovm_inst_t *dst, ovm_class_t cl, unsigned argc, ovm_inst_t *argv)
 {
   void (*f)(ovm_t ovm, ovm_inst_t *dst, ovm_class_t cl, unsigned argc, ovm_inst_t *argv) = 0;
@@ -399,7 +411,7 @@ _ovm_new_run(ovm_t ovm, ovm_inst_t *dst, ovm_class_t cl, unsigned argc, ovm_inst
   (*f)(ovm, dst, cl, argc, argv);
 }
 
-static void
+PRIVATE void
 __ovm_new(ovm_t ovm, ovm_inst_t *dst, ovm_class_t cl, unsigned argc, ...)
 {
   va_list    ap;
@@ -417,7 +429,7 @@ __ovm_new(ovm_t ovm, ovm_inst_t *dst, ovm_class_t cl, unsigned argc, ...)
   _ovm_new_run(ovm, dst, cl, argc, argv);
 }
 
-static void
+PRIVATE void
 _ovm_inst_new2(ovm_t ovm, ovm_inst_t *dst, ovm_class_t cl, unsigned argc, ovm_inst_t *argv)
 {
   void       *old;
@@ -433,7 +445,7 @@ _ovm_inst_new2(ovm_t ovm, ovm_inst_t *dst, ovm_class_t cl, unsigned argc, ovm_in
   ovm_ffree(ovm, old);
 }
 
-static void
+PRIVATE void
 _ovm_inst_new1(ovm_t ovm, ovm_inst_t *dst, ovm_class_t cl, unsigned argc, ovm_inst_t *argv)
 {
   if (argc == 1 && _ovm_inst_of(argv[0]) == cl) {
@@ -443,7 +455,7 @@ _ovm_inst_new1(ovm_t ovm, ovm_inst_t *dst, ovm_class_t cl, unsigned argc, ovm_in
   }
 }
 
-static void
+PRIVATE void
 _ovm_method_run(ovm_t ovm, ovm_inst_t *dst, ovm_class_t cl, unsigned sel, unsigned argc, ovm_inst_t *argv)
 {
   ovm_method_call_t f = 0;
@@ -457,7 +469,7 @@ _ovm_method_run(ovm_t ovm, ovm_inst_t *dst, ovm_class_t cl, unsigned sel, unsign
   (*f)(ovm, dst, argc, argv);
 }
 
-static void
+PRIVATE void
 __ovm_method_call(ovm_t ovm, ovm_inst_t *dst, ovm_inst_t recvr, unsigned sel, unsigned argc, ...)
 {
   va_list    ap;
@@ -475,7 +487,7 @@ __ovm_method_call(ovm_t ovm, ovm_inst_t *dst, ovm_inst_t recvr, unsigned sel, un
   _ovm_method_run(ovm, dst, _ovm_inst_of(argv[0]), sel, argc, argv);
 }
 
-static void
+PRIVATE void
 _ovm_init_parent(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_inst_t *argv)
 {
   ovm_class_t p = cl->parent;
@@ -483,7 +495,7 @@ _ovm_init_parent(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_
   (*p->init)(ovm, inst, p, argc, argv);
 }
 
-static void
+PRIVATE void
 _ovm_walk_parent(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, void (*func)(ovm_t ovm, ovm_inst_t inst))
 {
   ovm_class_t p = cl->parent;
@@ -491,7 +503,7 @@ _ovm_walk_parent(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, void (*func)(ovm_t 
   (*p->walk)(ovm, inst, p, func);
 }
 
-static void
+PRIVATE void
 _ovm_free_parent(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl)
 {
   ovm_class_t p = cl->parent;
@@ -499,7 +511,9 @@ _ovm_free_parent(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl)
   (*p->free)(ovm, inst, p);
 }
 
-static void
+#ifndef NDEBUG
+
+PRIVATE void
 _ovm_stk_stats_up(ovm_t ovm, unsigned n)
 {
   if ((ovm->stats->stack_depth += n) > ovm->stats->stack_depth_max) {
@@ -507,13 +521,15 @@ _ovm_stk_stats_up(ovm_t ovm, unsigned n)
   }
 }
 
-static void
+PRIVATE void
 _ovm_stk_stats_dn(ovm_t ovm, unsigned n)
 {
   ovm->stats->stack_depth -= n;
 }
 
-static void
+#endif
+
+PRIVATE void
 __ovm_except_raise(ovm_t ovm, int code, ovm_inst_t arg, char *file, unsigned line)
 {
   struct ovm_except_frame *xfr = ovm->xfp;
@@ -526,7 +542,9 @@ __ovm_except_raise(ovm_t ovm, int code, ovm_inst_t arg, char *file, unsigned lin
   for (n = 0, p = ovm->sp; p < xfr->sp; ++p, ++n) {
     _ovm_inst_release(ovm, *p);
   }
+#ifndef NDEBUG
   _ovm_stk_stats_dn(ovm, n);
+#endif
   ovm->fp = xfr->fp;
 
   _ovm_assign(ovm, &xfr->arg, arg);
@@ -538,18 +556,18 @@ __ovm_except_raise(ovm_t ovm, int code, ovm_inst_t arg, char *file, unsigned lin
 
 /***************************************************************************/
 
-static void
+PRIVATE void
 _ovm_object_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_inst_t *argv)
 {
   OVM_ASSERT(argc == 0);
 }
 
-static void
+PRIVATE void
 _ovm_object_walk(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, void (*func)(ovm_t ovm, ovm_inst_t inst))
 {
 }
 
-static void
+PRIVATE void
 _ovm_object_free(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl)
 {
   struct ovm_inst_page *q = inst->page;
@@ -580,16 +598,16 @@ const struct ovm_class ovm_cl_object[1] = {
 
 /***************************************************************************/
 
-static void _ovm_integer_newc(ovm_t ovm, ovm_inst_t *dst, ovm_intval_t val);
+PRIVATE void _ovm_integer_newc(ovm_t ovm, ovm_inst_t *dst, ovm_intval_t val);
 
-static void
+PRIVATE void
 _ovm_boolean_newc(ovm_t ovm, ovm_inst_t *dst, ovm_boolval_t val)
 {
   _ovm_inst_alloc(ovm, ovm_cl_boolean, dst);
   BOOLVAL(*dst) = (val != 0);
 }
 
-static int
+PRIVATE int
 _xml_parse_bool2(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t inst)
 {
   int      c;
@@ -612,14 +630,14 @@ _xml_parse_bool2(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t inst)
   return (0);
 }
 
-static int
+PRIVATE int
 _xml_parse_bool(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t inst)
 {
   sv_spskip(pb);
   return (!sv_strcmp(pb, 9, "<Boolean>") ? -1 : _xml_parse_bool2(ovm, pb, inst));
 }
 
-static void
+PRIVATE void
 _ovm_boolean_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_inst_t *argv)
 {
   ovm_inst_t  arg;
@@ -653,7 +671,7 @@ _ovm_boolean_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm
   __ovm_except_raise(ovm, OVM_EXCEPT_CODE_BAD_VALUE, arg, __FILE__, __LINE__);
 }
 
-static void
+PRIVATE void
 _ovm_boolean_equal(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   OVM_ASSERT(_ovm_is_kind_of(argv[0], ovm_cl_boolean));
@@ -665,7 +683,7 @@ _ovm_boolean_equal(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   _ovm_boolean_newc(ovm, dst, (BOOLVAL(argv[0]) != 0) == (BOOLVAL(argv[1]) != 0));
 }
 
-static void
+PRIVATE void
 _ovm_boolean_hash(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   OVM_ASSERT(_ovm_is_kind_of(argv[0], ovm_cl_boolean));
@@ -692,14 +710,14 @@ const struct ovm_class ovm_cl_boolean[1] = {
 
 /***************************************************************************/
 
-static void
+PRIVATE void
 _ovm_integer_newc(ovm_t ovm, ovm_inst_t *dst, ovm_intval_t val)
 {
   _ovm_inst_alloc(ovm, ovm_cl_integer, dst);
   INTVAL(*dst) = val;
 }
 
-static int
+PRIVATE int
 _xml_parse_int2(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t inst)
 {
   int      c;
@@ -735,13 +753,13 @@ _xml_parse_int2(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t inst)
   return (sscanf(buf, "%lld", &INTVAL(inst)) == 1 ? 0 : -1);
 }
 
-static int
+PRIVATE int
 _xml_parse_int(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t inst)
 {
   sv_spskip(pb);
   return (!sv_strcmp(pb, 9, "<Integer>") ? -1 : _xml_parse_int2(ovm, pb, inst));
 }
-static void
+PRIVATE void
 _ovm_integer_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_inst_t *argv)
 {
   if (argc > 0) {
@@ -767,7 +785,7 @@ _ovm_integer_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm
   _ovm_init_parent(ovm, inst, cl, argc, argv);
 }
 
-static void
+PRIVATE void
 _ovm_integer_add(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   OVM_ASSERT(_ovm_inst_of(argv[0]) == ovm_cl_integer);
@@ -779,7 +797,7 @@ _ovm_integer_add(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   _ovm_integer_newc(ovm, dst, INTVAL(argv[0]) + INTVAL(argv[1]));
 }
 
-static void
+PRIVATE void
 _ovm_integer_equal(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   OVM_ASSERT(_ovm_is_kind_of(argv[0], ovm_cl_integer));
@@ -791,7 +809,7 @@ _ovm_integer_equal(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   _ovm_boolean_newc(ovm, dst, INTVAL(argv[0]) == INTVAL(argv[1]));
 }
 
-static void
+PRIVATE void
 _ovm_integer_hash(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   unsigned h[1];
@@ -824,14 +842,14 @@ const struct ovm_class ovm_cl_integer[1] = {
 
 /***************************************************************************/
 
-static void
+PRIVATE void
 _ovm_strval_alloc(ovm_t ovm, ovm_inst_t inst, unsigned size)
 {
   STRVAL(inst)->size = size;
   STRVAL(inst)->data = _ovm_malloc(ovm, size);
 }
 
-static void
+PRIVATE void
 _ovm_strval_initc(ovm_t ovm, ovm_inst_t inst, unsigned argc, ...)
 {
   va_list  ap;
@@ -862,29 +880,7 @@ _ovm_strval_initc(ovm_t ovm, ovm_inst_t inst, unsigned argc, ...)
   va_end(ap);
 }
 
-static void
-_ovm_strval_initv(ovm_t ovm, ovm_inst_t inst, unsigned argc, struct ovm_strval *argv)
-{
-  unsigned          k, n, size;
-  char              *p;
-  struct ovm_strval *q;
-
-  for (size = 0, q = argv, k = argc; k; --k, ++q) {
-    size += q->size - 1;
-  }
-  ++size;
-
-  _ovm_strval_alloc(ovm, inst, size);  
-
-  for (p = (char *) STRVAL(inst)->data, q = argv, k = argc; k; --k, ++q) {
-    n = q->size - 1;
-    memcpy(p, q->data, n);
-    p += n;
-  }
-  *p = 0;
-}
-
-static void
+PRIVATE void
 _ovm_strval_inita(ovm_t ovm, ovm_inst_t inst, unsigned argc, ovm_inst_t *argv)
 {
   unsigned   k, n, size;
@@ -907,16 +903,16 @@ _ovm_strval_inita(ovm_t ovm, ovm_inst_t inst, unsigned argc, ovm_inst_t *argv)
   *p = 0;
 }
 
-static void
+PRIVATE void
 _ovm_string_newc(ovm_t ovm, ovm_inst_t *dst, char *s)
 {
   _ovm_inst_alloc(ovm, ovm_cl_string, dst);
   _ovm_strval_initc(ovm, *dst, 1, strlen(s) + 1, s);
 }
 
-static unsigned _list_len(ovm_inst_t inst);
+PRIVATE unsigned _list_len(ovm_inst_t inst);
 
-static void
+PRIVATE void
 _ovm_string_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_inst_t *argv)
 {
   if (argc > 0) {
@@ -1107,7 +1103,7 @@ _ovm_string_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_
   _ovm_init_parent(ovm, inst, cl, argc, argv);
 }
 
-static void 
+PRIVATE void 
 _ovm_string_free(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl)
 {
   _ovm_free(ovm, STRVAL(inst)->size, (void *) STRVAL(inst)->data);
@@ -1115,7 +1111,7 @@ _ovm_string_free(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl)
   _ovm_free_parent(ovm, inst, cl);
 }
 
-static void
+PRIVATE void
 _ovm_string_equal(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   OVM_ASSERT(_ovm_is_kind_of(argv[0], ovm_cl_string));
@@ -1130,7 +1126,7 @@ _ovm_string_equal(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 		    );
 }
 
-static void
+PRIVATE void
 _ovm_string_hash(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   unsigned h[1];
@@ -1162,14 +1158,14 @@ const struct ovm_class ovm_cl_string[1] = {
 
 /***************************************************************************/
 
-static void
+PRIVATE void
 _ovm_xml_newc(ovm_t ovm, ovm_inst_t *dst, char *s)
 {
   _ovm_inst_alloc(ovm, ovm_cl_xml, dst);
   _ovm_strval_initc(ovm, *dst, 1, strlen(s) + 1, s);
 }
 
-static void
+PRIVATE void
 _ovm_xml_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_inst_t *argv)
 {
   ovm_inst_t  arg;
@@ -1389,7 +1385,7 @@ _ovm_xml_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_ins
   _ovm_init_parent(ovm, inst, cl, argc, argv);
 }
 
-static int
+PRIVATE int
 __xml_parse(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t *dst, ovm_class_t cl, int (*func)(ovm_t, struct ovm_strval *, ovm_inst_t))
 {
   int result;
@@ -1409,9 +1405,9 @@ __xml_parse(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t *dst, ovm_class_t cl, i
   return (result);
 }
 
-static int _xml_parse_list2(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t *dst);
+PRIVATE int _xml_parse_list2(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t *dst);
 
-static int
+PRIVATE int
 _xml_parse(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t *dst)
 {
   int  result;
@@ -1438,7 +1434,7 @@ _xml_parse(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t *dst)
   return (-1);
 }
 
-static void
+PRIVATE void
 _ovm_xml_parse(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   struct ovm_strval pb[1];
@@ -1471,56 +1467,56 @@ const struct ovm_class ovm_cl_xml[1] = {
 
 /***************************************************************************/
 
-static ovm_bmval_unit_t
+PRIVATE ovm_bmval_unit_t
 bmval_bit(unsigned sh)
 {
   return (((ovm_bmval_unit_t) 1) << sh);
 }
 
-static ovm_bmval_unit_t
+PRIVATE ovm_bmval_unit_t
 bmval_bits(unsigned n)
 {
   return (n >= (OVM_BMVAL_UNIT_BITS - 1) ? (ovm_bmval_unit_t) -1 : bmval_bit(n) - 1);
 }
 
-static unsigned
+PRIVATE unsigned
 bmap_unit_idx(unsigned b)
 {
   return (b >> OVM_BMVAL_UNIT_BITS_LOG2);
 }
 
-static unsigned
+PRIVATE unsigned
 bmap_unit_sh(unsigned b)
 {
   return (b & (OVM_BMVAL_UNIT_BITS - 1));
 }
 
-static unsigned
+PRIVATE unsigned
 bmap_bits_to_units(unsigned size)
 {
   return (bmap_unit_idx(size - 1) + 1);
 }
 
-static unsigned
+PRIVATE unsigned
 bmap_units_to_bytes(unsigned units)
 {
   return (units * sizeof(ovm_bmval_unit_t));
 }
 
-static unsigned
+PRIVATE unsigned
 bmap_bits_to_bytes(unsigned size)
 {
   return (bmap_units_to_bytes(bmap_bits_to_units(size)));
 }
 
-static void
+PRIVATE void
 _ovm_bmval_alloc(ovm_t ovm, ovm_inst_t inst, unsigned size)
 {
   BMVAL(inst)->size = size;
   BMVAL(inst)->data = _ovm_malloc(ovm, bmap_bits_to_bytes(size));
 }
 
-static void
+PRIVATE void
 _ovm_bmval_clr(ovm_inst_t inst)
 {
   memset((void *) BMVAL(inst)->data, 0, bmap_bits_to_bytes(BMVAL(inst)->size));
@@ -1540,7 +1536,7 @@ _ovm_bitmap_newc(ovm_t ovm, ovm_inst_t *dst, unsigned size, ovm_bmval_unit_t *da
   if (sh != 0)  p[n - 1] &= bmval_bit(sh) - 1;
 }
 
-static void
+PRIVATE void
 _ovm_bmap_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_inst_t *argv)
 {
   if (argc > 0) {
@@ -1562,7 +1558,7 @@ _ovm_bmap_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_in
   _ovm_init_parent(ovm, inst, cl, argc, argv);
 }
 
-static void 
+PRIVATE void 
 _ovm_bmap_free(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl)
 {
   _ovm_free(ovm, bmap_bits_to_bytes(BMVAL(inst)->size), (void *) BMVAL(inst)->data);
@@ -1570,7 +1566,7 @@ _ovm_bmap_free(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl)
   _ovm_free_parent(ovm, inst, cl);
 }
 
-static void
+PRIVATE void
 _ovm_bmap_equal(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   OVM_ASSERT(_ovm_is_kind_of(argv[0], ovm_cl_bitmap));
@@ -1583,7 +1579,7 @@ _ovm_bmap_equal(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 		    );			      
 }
 
-static void
+PRIVATE void
 _ovm_bmap_hash(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   unsigned h[1];
@@ -1613,9 +1609,9 @@ const struct ovm_class ovm_cl_bitmap[1] = {
 
 /***************************************************************************/
 
-static const struct ovm_class ovm_cl_dptr[1];
+PRIVATE const struct ovm_class ovm_cl_dptr[1];
 
-static void
+PRIVATE void
 _ovm_dptr_newc(ovm_t ovm, ovm_inst_t *dst, ovm_class_t cl, ovm_inst_t car, ovm_inst_t cdr)
 {
   void *old;
@@ -1633,7 +1629,7 @@ _ovm_dptr_newc(ovm_t ovm, ovm_inst_t *dst, ovm_class_t cl, ovm_inst_t car, ovm_i
   ovm_ffree(ovm, old);
 }
 
-static void
+PRIVATE void
 _ovm_dptr_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_inst_t *argv)
 {
   if (argc >= 2) {
@@ -1646,7 +1642,7 @@ _ovm_dptr_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_in
   _ovm_init_parent(ovm, inst, cl, argc, argv);
 }
 
-static void
+PRIVATE void
 _ovm_dptr_walk(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, void (*func)(ovm_t ovm, ovm_inst_t inst))
 {
   (*func)(ovm, CAR(inst));
@@ -1655,7 +1651,7 @@ _ovm_dptr_walk(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, void (*func)(ovm_t ov
   _ovm_walk_parent(ovm, inst, cl, func);
 }
 
-static void
+PRIVATE void
 _ovm_dptr_car(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   OVM_ASSERT(_ovm_is_kind_of(argv[0], ovm_cl_dptr));
@@ -1664,7 +1660,7 @@ _ovm_dptr_car(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   OVM_CASSIGN(ovm, dst, CAR(argv[0]));
 }
 
-static void
+PRIVATE void
 _ovm_dptr_cdr(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   OVM_ASSERT(_ovm_is_kind_of(argv[0], ovm_cl_dptr));
@@ -1673,7 +1669,7 @@ _ovm_dptr_cdr(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   OVM_CASSIGN(ovm, dst, CDR(argv[0]));
 }
 
-static void
+PRIVATE void
 _ovm_dptr_equal(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   void     *old;
@@ -1699,7 +1695,7 @@ _ovm_dptr_equal(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   _ovm_boolean_newc(ovm, dst, f);
 }
 
-static void
+PRIVATE void
 _ovm_dptr_hash(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   void     *old;
@@ -1722,7 +1718,7 @@ _ovm_dptr_hash(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   _ovm_integer_newc(ovm, dst, h);
 }
 
-static const struct ovm_class ovm_cl_dptr[1] = {
+PRIVATE const struct ovm_class ovm_cl_dptr[1] = {
   { .name   = "Dptr",
     .parent = ovm_cl_object,
     .init   = _ovm_dptr_init,
@@ -1753,7 +1749,7 @@ const struct ovm_class ovm_cl_pair[1] = {
 
 /***************************************************************************/
 
-static unsigned
+PRIVATE unsigned
 _list_len(ovm_inst_t inst)
 {
   unsigned result;
@@ -1765,7 +1761,7 @@ _list_len(ovm_inst_t inst)
   return (result);
 }
 
-static int
+PRIVATE int
 _xml_parse_list2(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t *dst)
 {
   struct ovm_strval pb2[1];
@@ -1776,7 +1772,7 @@ _xml_parse_list2(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t *dst)
 
   if (_xml_end_tag_find(pb, 4, "List") < 0)  return (-1);
 
-  sv_trim(pb2, 7 + pb->size);
+  sv_trim(pb2, pb, 7);
 
   old = ovm_falloc(ovm, 2);
   wp = ovm->sp;
@@ -1797,14 +1793,14 @@ _xml_parse_list2(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t *dst)
   return (0);
 }
 
-static int
+PRIVATE int
 _xml_parse_list(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t *dst)
 {
   sv_spskip(pb);
   return (!sv_strcmp(pb, 6, "<List>") ? -1 : _xml_parse_list2(ovm, pb, dst));
 }
 
-static void
+PRIVATE void
 _ovm_list_new(ovm_t ovm, ovm_inst_t *dst, ovm_class_t cl, unsigned argc, ovm_inst_t *argv)
 {
   void       *old;
@@ -1853,7 +1849,7 @@ _ovm_list_new(ovm_t ovm, ovm_inst_t *dst, ovm_class_t cl, unsigned argc, ovm_ins
   OVM_ASSERT(0);
 }
 
-static void
+PRIVATE void
 _ovm_list_equal(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   void     *old;
@@ -1879,7 +1875,7 @@ _ovm_list_equal(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   _ovm_boolean_newc(ovm, dst, f);
 }
 
-static void
+PRIVATE void
 _ovm_list_hash(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   void     *old;
@@ -1917,7 +1913,7 @@ const struct ovm_class ovm_cl_list[1] = {
 
 /***************************************************************************/
 
-static void
+PRIVATE void
 _ovm_arrayval_alloc(ovm_t ovm, ovm_inst_t inst, unsigned size)
 {
   unsigned n = size * sizeof(ARRAYVAL(inst)->data[0]);
@@ -1926,7 +1922,7 @@ _ovm_arrayval_alloc(ovm_t ovm, ovm_inst_t inst, unsigned size)
   ARRAYVAL(inst)->data = _ovm_malloc(ovm, n);
 }
 
-static void
+PRIVATE void
 _ovm_arrayval_init(ovm_t ovm, ovm_inst_t inst, unsigned size)
 {
   _ovm_arrayval_alloc(ovm, inst, size);
@@ -1940,7 +1936,7 @@ _ovm_array_newc(ovm_t ovm, ovm_inst_t *dst, unsigned size)
   _ovm_arrayval_init(ovm, *dst, size);
 }
 
-static int
+PRIVATE int
 _xml_parse_array2(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t inst)
 {
   int               result = -1;
@@ -1953,7 +1949,7 @@ _xml_parse_array2(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t inst)
 
   if (_xml_end_tag_find(pb, 5, "Array") < 0)  return (-1);
 
-  sv_trim(pb2, 8 + pb->size);
+  sv_trim(pb2, pb, 8);
 
   *pb3 = *pb2;
 
@@ -1985,14 +1981,14 @@ _xml_parse_array2(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t inst)
   return (result);
 }
 
-static int
+PRIVATE int
 _xml_parse_array(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t inst)
 {
   sv_spskip(pb);
   return (!sv_strcmp(pb, 7, "<Array>") ? -1 : _xml_parse_array2(ovm, pb, inst));
 }
 
-static void
+PRIVATE void
 _ovm_array_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_inst_t *argv)
 {
   if (argc > 0) {
@@ -2052,7 +2048,7 @@ _ovm_array_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_i
   _ovm_init_parent(ovm, inst, cl, argc, argv);
 }
 
-static void
+PRIVATE void
 _ovm_array_walk(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, void (*func)(ovm_t ovm, ovm_inst_t inst))
 {
   ovm_inst_t *p;
@@ -2065,7 +2061,7 @@ _ovm_array_walk(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, void (*func)(ovm_t o
   _ovm_walk_parent(ovm, inst, cl, func);
 }
 
-static void 
+PRIVATE void 
 _ovm_array_free(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl)
 {
   _ovm_free(ovm, ARRAYVAL(inst)->size * sizeof(ARRAYVAL(inst)->data[0]), ARRAYVAL(inst)->data);
@@ -2073,7 +2069,7 @@ _ovm_array_free(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl)
   _ovm_free_parent(ovm, inst, cl);  
 }
 
-static void
+PRIVATE void
 _ovm_array_at(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   ovm_intval_t ofs, len;
@@ -2091,7 +2087,7 @@ _ovm_array_at(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   OVM_CASSIGN(ovm, dst, ARRAYVAL(argv[0])->data[ofs]);
 }
 
-static void
+PRIVATE void
 _ovm_array_at_put(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   ovm_intval_t ofs, len;
@@ -2125,7 +2121,7 @@ const struct ovm_class ovm_cl_array[1] = {
 
 /***************************************************************************/
 
-static unsigned
+PRIVATE unsigned
 round_up_to_power_of_2(unsigned i)
 {
   unsigned result, j;
@@ -2141,7 +2137,7 @@ round_up_to_power_of_2(unsigned i)
   }
 }
 
-static ovm_inst_t *
+PRIVATE ovm_inst_t *
 _set_find(ovm_t ovm, ovm_inst_t set, ovm_inst_t val, ovm_inst_t **bb)
 {
   void *old;
@@ -2166,13 +2162,13 @@ _set_find(ovm_t ovm, ovm_inst_t set, ovm_inst_t val, ovm_inst_t **bb)
   return (p);
 }
 
-static unsigned
+PRIVATE unsigned
 _set_at(ovm_t ovm, ovm_inst_t set, ovm_inst_t val)
 {
   return (_set_find(ovm, set, val, 0) != 0);
 }
 
-static void
+PRIVATE void
 _set_put(ovm_t ovm, ovm_inst_t set, ovm_inst_t val)
 {
   ovm_inst_t *b;
@@ -2193,7 +2189,7 @@ _set_put(ovm_t ovm, ovm_inst_t set, ovm_inst_t val)
   }
 }
 
-static void
+PRIVATE void
 _set_del(ovm_t ovm, ovm_inst_t set, ovm_inst_t val)
 {
   ovm_inst_t *p;
@@ -2206,7 +2202,7 @@ _set_del(ovm_t ovm, ovm_inst_t set, ovm_inst_t val)
   }
 }
 
-static void
+PRIVATE void
 _ovm_set_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_inst_t *argv)
 {
   if (argc == 0) {
@@ -2259,7 +2255,7 @@ _ovm_set_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_ins
   _ovm_init_parent(ovm, inst, cl, argc, argv);
 }
 
-static void
+PRIVATE void
 _ovm_set_at(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   OVM_ASSERT(_ovm_is_kind_of(argv[0], ovm_cl_set));
@@ -2270,7 +2266,7 @@ _ovm_set_at(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   _ovm_boolean_newc(ovm, dst, _set_at(ovm, argv[0], argv[1]));
 }
 
-static void
+PRIVATE void
 _ovm_set_del(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   ovm_inst_t *p;
@@ -2283,7 +2279,7 @@ _ovm_set_del(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   OVM_CASSIGN(ovm, dst, argv[1]);
 }
 
-static void
+PRIVATE void
 _ovm_set_put(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   ovm_inst_t *b;
@@ -2313,7 +2309,7 @@ const struct ovm_class ovm_cl_set[1] = {
 
 /***************************************************************************/
 
-static ovm_inst_t *
+PRIVATE ovm_inst_t *
 _dict_find(ovm_t ovm, ovm_inst_t dict, ovm_inst_t key, ovm_inst_t **bb)
 {
   void *old;
@@ -2338,7 +2334,7 @@ _dict_find(ovm_t ovm, ovm_inst_t dict, ovm_inst_t key, ovm_inst_t **bb)
   return (p);
 }
 
-static ovm_inst_t
+PRIVATE ovm_inst_t
 _dict_at(ovm_t ovm, ovm_inst_t dict, ovm_inst_t key)
 {
   ovm_inst_t *p;
@@ -2347,7 +2343,7 @@ _dict_at(ovm_t ovm, ovm_inst_t dict, ovm_inst_t key)
   return (p == 0 ? 0 : CAR(*p));
 }
 
-static void
+PRIVATE void
 _dict_at_put(ovm_t ovm, ovm_inst_t dict, ovm_inst_t key, ovm_inst_t val)
 {
   ovm_inst_t *p, *b;
@@ -2372,7 +2368,7 @@ _dict_at_put(ovm_t ovm, ovm_inst_t dict, ovm_inst_t key, ovm_inst_t val)
   }
 }
 
-static void
+PRIVATE void
 _dict_put(ovm_t ovm, ovm_inst_t dict, ovm_inst_t val)
 {
   ovm_inst_t k, v;
@@ -2388,7 +2384,7 @@ _dict_put(ovm_t ovm, ovm_inst_t dict, ovm_inst_t val)
   _dict_at_put(ovm, dict, k, v);
 }
 
-static void
+PRIVATE void
 _dict_del(ovm_t ovm, ovm_inst_t dict, ovm_inst_t key)
 {
   ovm_inst_t *p;
@@ -2401,7 +2397,7 @@ _dict_del(ovm_t ovm, ovm_inst_t dict, ovm_inst_t key)
   }
 }
 
-static void
+PRIVATE void
 _ovm_dict_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_inst_t *argv)
 {
   if (argc == 0) {
@@ -2454,7 +2450,7 @@ _ovm_dict_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_in
   _ovm_init_parent(ovm, inst, cl, argc, argv);
 }
 
-static void
+PRIVATE void
 _ovm_dict_at(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   ovm_inst_t p;
@@ -2472,7 +2468,7 @@ _ovm_dict_at(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   }
 }
 
-static void
+PRIVATE void
 _ovm_dict_at_put(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   ovm_inst_t *b;
@@ -2485,7 +2481,7 @@ _ovm_dict_at_put(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   OVM_CASSIGN(ovm, dst, argv[1]);
 }
 
-static void
+PRIVATE void
 _ovm_dict_del(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   ovm_inst_t *p;
@@ -2515,7 +2511,7 @@ const struct ovm_class ovm_cl_dictionary[1] = {
 
 /***************************************************************************/
 
-unsigned
+PUBLIC unsigned
 ovm_is_nil(ovm_t ovm, unsigned src)
 {
   REG_CHK(src);
@@ -2523,7 +2519,7 @@ ovm_is_nil(ovm_t ovm, unsigned src)
   return (ovm->regs[src] == 0);
 }
 
-ovm_class_t
+PUBLIC ovm_class_t
 ovm_inst_of(ovm_t ovm, unsigned src)
 {
   REG_CHK(src);
@@ -2531,19 +2527,19 @@ ovm_inst_of(ovm_t ovm, unsigned src)
   return (_ovm_inst_of(ovm->regs[src]));
 }
 
-const char *
+PUBLIC const char *
 ovm_class_name(ovm_class_t cl)
 {
   return (cl->name);
 }
 
-ovm_class_t
+PUBLIC ovm_class_t
 ovm_class_parent(ovm_class_t cl)
 {
   return (cl->parent);
 }
 
-unsigned
+PUBLIC unsigned
 ovm_is_subclass_of(ovm_class_t cl1, ovm_class_t cl2)
 {
   for ( ; cl1; cl1 = cl1->parent) {
@@ -2553,7 +2549,7 @@ ovm_is_subclass_of(ovm_class_t cl1, ovm_class_t cl2)
   return (0);
 }
 
-unsigned
+PUBLIC unsigned
 ovm_is_kind_of(ovm_t ovm, unsigned src, ovm_class_t cl)
 {
   REG_CHK(src);
@@ -2561,7 +2557,7 @@ ovm_is_kind_of(ovm_t ovm, unsigned src, ovm_class_t cl)
   return (_ovm_is_kind_of(ovm->regs[src], cl));
 }
 
-void
+PUBLIC void
 ovm_move(ovm_t ovm, unsigned dst, unsigned src)
 {
   REG_CHK(dst);
@@ -2572,7 +2568,7 @@ ovm_move(ovm_t ovm, unsigned dst, unsigned src)
   _ovm_assign(ovm, &ovm->regs[dst], ovm->regs[src]);
 }
 
-void
+PUBLIC void
 ovm_push(ovm_t ovm, unsigned src)
 {
   REG_CHK(src);
@@ -2580,10 +2576,12 @@ ovm_push(ovm_t ovm, unsigned src)
 
   *--ovm->sp = _ovm_inst_retain(ovm->regs[src]);
 
+#ifndef NDEBUG
   _ovm_stk_stats_up(ovm, 1);
+#endif
 }
 
-void
+PUBLIC void
 ovm_pushm(ovm_t ovm, unsigned src, unsigned n)
 {
   ovm_inst_t *p, *q;
@@ -2596,10 +2594,12 @@ ovm_pushm(ovm_t ovm, unsigned src, unsigned n)
     *p = _ovm_inst_retain(*q);
   }
 
+#ifndef NDEBUG
   _ovm_stk_stats_up(ovm, n);
+#endif
 }
 
-void
+PUBLIC void
 ovm_pop(ovm_t ovm, unsigned dst)
 {
   REG_CHK(dst);
@@ -2611,10 +2611,12 @@ ovm_pop(ovm_t ovm, unsigned dst)
     _ovm_inst_release(ovm, *ovm->sp++);
   }
 
+#ifndef NDEBUG
   _ovm_stk_stats_dn(ovm, 1);
+#endif
 }
 
-void
+PUBLIC void
 ovm_popm(ovm_t ovm, unsigned dst, unsigned n)
 {
   ovm_inst_t *p, *q;
@@ -2633,20 +2635,24 @@ ovm_popm(ovm_t ovm, unsigned dst, unsigned n)
 
   ovm->sp += n;
 
+#ifndef NDEBUG
   _ovm_stk_stats_dn(ovm, n);
+#endif
 }
 
-void
+PUBLIC void
 ovm_drop(ovm_t ovm)
 {
   OVM_ASSERT(ovm->sp < ovm->stack_end);
 
   _ovm_inst_release(ovm, *ovm->sp++);
 
+#ifndef NDEBUG
   _ovm_stk_stats_dn(ovm, 1);
+#endif
 }
 
-void
+PUBLIC void
 ovm_dropm(ovm_t ovm, unsigned n)
 {
   ovm_inst_t *p;
@@ -2660,10 +2666,12 @@ ovm_dropm(ovm_t ovm, unsigned n)
 
   ovm->sp += n;
 
+#ifndef NDEBUG
   _ovm_stk_stats_dn(ovm, n);
+#endif
 }
 
-void *
+PUBLIC void *
 ovm_falloc(ovm_t ovm, unsigned n)
 {
   void *result;
@@ -2675,12 +2683,14 @@ ovm_falloc(ovm_t ovm, unsigned n)
   ovm->fp = ovm->sp;
   memset(ovm->sp -= n, 0, n * sizeof(*ovm->sp));
 
+#ifndef NDEBUG
   _ovm_stk_stats_up(ovm, n);
+#endif
 
   return (result);
 }
 
-void
+PUBLIC void
 ovm_ffree(ovm_t ovm, void *old)
 {
   ovm_inst_t *p;
@@ -2693,10 +2703,12 @@ ovm_ffree(ovm_t ovm, void *old)
 
   ovm->fp = (ovm_inst_t *) old;  
 
+#ifndef NDEBUG
   _ovm_stk_stats_dn(ovm, n);
+#endif
 }
 
-void
+PUBLIC void
 ovm_fload(ovm_t ovm, unsigned dst, int src)
 {
   ovm_inst_t *p;
@@ -2710,7 +2722,7 @@ ovm_fload(ovm_t ovm, unsigned dst, int src)
   _ovm_assign(ovm, &ovm->regs[dst], *p);
 }
 
-void
+PUBLIC void
 ovm_fstore(ovm_t ovm, int dst, unsigned src)
 {
   ovm_inst_t *p;
@@ -2722,7 +2734,7 @@ ovm_fstore(ovm_t ovm, int dst, unsigned src)
   _ovm_assign(ovm, p, ovm->regs[src]);
 }
 
-void
+PUBLIC void
 ovm_gload(ovm_t ovm, unsigned dst, unsigned src)
 {
   REG_CHK(dst);
@@ -2733,7 +2745,7 @@ ovm_gload(ovm_t ovm, unsigned dst, unsigned src)
   _ovm_assign(ovm, &ovm->regs[dst], ovm->glob[src]);
 }
 
-void
+PUBLIC void
 ovm_gstore(ovm_t ovm, unsigned dst, unsigned src)
 {
   OVM_ASSERT(dst < ovm->glob_size);
@@ -2742,7 +2754,7 @@ ovm_gstore(ovm_t ovm, unsigned dst, unsigned src)
   _ovm_assign(ovm, &ovm->glob[dst], ovm->regs[src]);
 }
 
-void
+PUBLIC void
 _ovm_new(ovm_t ovm, unsigned dst, ovm_class_t cl, unsigned argc, ...)
 {
   va_list    ap;
@@ -2766,7 +2778,7 @@ _ovm_new(ovm_t ovm, unsigned dst, ovm_class_t cl, unsigned argc, ...)
   _ovm_new_run(ovm, &ovm->regs[dst], cl, argc, argv);
 }
 
-void
+PUBLIC void
 _ovm_method_call(ovm_t ovm, unsigned dst, unsigned recvr, ovm_class_t cl, unsigned sel, unsigned argc, ...)
 {
   va_list    ap;
@@ -2791,7 +2803,7 @@ _ovm_method_call(ovm_t ovm, unsigned dst, unsigned recvr, ovm_class_t cl, unsign
   _ovm_method_run(ovm, dst == 0 ? 0 : &ovm->regs[dst], cl == 0 ? _ovm_inst_of(argv[0]) : cl, sel, argc, argv);
 }
 
-void
+PUBLIC void
 ovm_boolean_newc(ovm_t ovm, unsigned dst, ovm_boolval_t val)
 {
   ovm_inst_t *p;
@@ -2803,7 +2815,7 @@ ovm_boolean_newc(ovm_t ovm, unsigned dst, ovm_boolval_t val)
   _ovm_boolean_newc(ovm, &ovm->regs[dst], val);
 }
 
-void
+PUBLIC void
 ovm_integer_newc(ovm_t ovm, unsigned dst, ovm_intval_t val)
 {
   ovm_inst_t *p;
@@ -2815,7 +2827,7 @@ ovm_integer_newc(ovm_t ovm, unsigned dst, ovm_intval_t val)
   _ovm_integer_newc(ovm, &ovm->regs[dst], val);
 }
 
-void
+PUBLIC void
 ovm_string_newc(ovm_t ovm, unsigned dst, char *s)
 {
   ovm_inst_t *p;
@@ -2827,7 +2839,7 @@ ovm_string_newc(ovm_t ovm, unsigned dst, char *s)
   _ovm_string_newc(ovm, &ovm->regs[dst], s);
 }
 
-void
+PUBLIC void
 ovm_xml_newc(ovm_t ovm, unsigned dst, char *s)
 {
   ovm_inst_t *p;
@@ -2839,7 +2851,7 @@ ovm_xml_newc(ovm_t ovm, unsigned dst, char *s)
   _ovm_xml_newc(ovm, &ovm->regs[dst], s);
 }
 
-void
+PUBLIC void
 ovm_bitmap_newc(ovm_t ovm, unsigned dst, unsigned size, ovm_bmval_unit_t *data)
 {
   REG_CHK(dst);
@@ -2849,7 +2861,7 @@ ovm_bitmap_newc(ovm_t ovm, unsigned dst, unsigned size, ovm_bmval_unit_t *data)
   _ovm_bitmap_newc(ovm, &ovm->regs[dst], size, data);
 }
 
-void
+PUBLIC void
 ovm_array_newc(ovm_t ovm, unsigned dst, unsigned size)
 {
   REG_CHK(dst);
@@ -2859,7 +2871,7 @@ ovm_array_newc(ovm_t ovm, unsigned dst, unsigned size)
   _ovm_array_newc(ovm, &ovm->regs[dst], size);
 }
 
-void
+PUBLIC void
 ovm_cval_get(ovm_t ovm, ovm_cval_t cval, unsigned src)
 {
   ovm_inst_t  inst;
@@ -2881,7 +2893,7 @@ ovm_cval_get(ovm_t ovm, ovm_cval_t cval, unsigned src)
   }
 }
 
-void
+PUBLIC void
 _ovm_except_frame_begin(ovm_t ovm, struct ovm_except_frame *xfr)
 {
   memset(xfr, 0, sizeof(*xfr));
@@ -2893,7 +2905,7 @@ _ovm_except_frame_begin(ovm_t ovm, struct ovm_except_frame *xfr)
   ovm->xfp = xfr;
 }
 
-void
+PUBLIC void
 _ovm_except_reraise(ovm_t ovm)
 {
   struct ovm_except_frame *xfr = ovm->xfp, *pxfr;
@@ -2907,7 +2919,9 @@ _ovm_except_reraise(ovm_t ovm)
   for (n = 0, p = ovm->sp; p < pxfr->sp; ++p, ++n) {
     _ovm_inst_release(ovm, *p);
   }
+#ifndef NDEBUG
   _ovm_stk_stats_dn(ovm, n);
+#endif
   ovm->fp = pxfr->fp;
 
   __ovm_assign(ovm, &pxfr->arg, xfr->arg);
@@ -2919,7 +2933,7 @@ _ovm_except_reraise(ovm_t ovm)
   longjmp(pxfr->jmp_buf, xfr->code);
 }
 
-void
+PUBLIC void
 _ovm_except_raise(ovm_t ovm, int code, unsigned src, char *file, unsigned line)
 {
   REG_CHK(src);
@@ -2927,7 +2941,7 @@ _ovm_except_raise(ovm_t ovm, int code, unsigned src, char *file, unsigned line)
   __ovm_except_raise(ovm, code, ovm->regs[src], file, line);
 }
 
-void
+PUBLIC void
 _ovm_except_frame_end(ovm_t ovm)
 {
   struct ovm_except_frame *xfr = ovm->xfp;
@@ -2939,7 +2953,7 @@ _ovm_except_frame_end(ovm_t ovm)
   ovm->xfp = xfr->prev;
 }
 
-void
+PUBLIC void
 ovm_except_arg_get(ovm_t ovm, unsigned dst)
 {
   OVM_ASSERT(ovm->xfp);
@@ -2948,7 +2962,7 @@ ovm_except_arg_get(ovm_t ovm, unsigned dst)
   OVM_CASSIGN(ovm, &ovm->regs[dst], ovm->xfp->arg);
 }
 
-void
+PUBLIC void
 ovm_init(ovm_t ovm, unsigned inst_page_size, void *glob, unsigned glob_size, void *stack, unsigned stack_size)
 {
   memset(ovm, 0, sizeof(*ovm));
@@ -2969,7 +2983,9 @@ ovm_init(ovm_t ovm, unsigned inst_page_size, void *glob, unsigned glob_size, voi
   ovm->sp = ovm->stack_end;
 }
 
-void
+#ifndef NDEBUG
+
+PUBLIC void
 ovm_stats_print(ovm_t ovm)
 {
   printf("\novm statistics:\n");
@@ -2985,3 +3001,5 @@ ovm_stats_print(ovm_t ovm)
   PRINT_STAT(stack_depth);
   PRINT_STAT(stack_depth_max);
 }
+
+#endif
