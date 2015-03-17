@@ -167,14 +167,13 @@ enum {
 };
 
 enum {
-  OVM_EXCEPT_CODE_BAD_VALUE = 1
+  OVM_EXCEPT_CODE_BAD_VALUE = 1,
+  OVM_EXCEPT_CODE_RANGE_ERR
 };
 
-typedef struct ovm_except_frame ovm_except_frame_var[1];
-
-#define OVM_EXCEPT_FRAME_BEGIN(_ovm, _xfr) \
+#define OVM_EXCEPT_FRAME_BEGIN(_ovm) \
 { \
-  _ovm_except_frame_begin((_ovm), (_xfr)); \
+  struct ovm_except_frame OVM_EXCEPT_FRAME_VAR(__LINE__) [1];  _ovm_except_frame_begin((_ovm), OVM_EXCEPT_FRAME_VAR(__LINE__)); \
   (_ovm)->xfp->code = setjmp((_ovm)->xfp->jmp_buf);
 
 #define OVM_EXCEPT_TRY_BEGIN(_ovm) \
@@ -184,6 +183,8 @@ typedef struct ovm_except_frame ovm_except_frame_var[1];
   }
  
 #define OVM_EXCEPT_CODE(_ovm)  ((_ovm)->xfp->code)
+#define OVM_EXCEPT_FILE(_ovm)  ((_ovm)->xfp->file)
+#define OVM_EXCEPT_LINE(_ovm)  ((_ovm)->xfp->line)
 
 #define OVM_EXCEPT_CATCH_BEGIN(_ovm, _cond) \
   if ((_ovm)->xfp->code != 0 && !(_ovm)->xfp->caughtf && (_cond)) {
@@ -203,6 +204,6 @@ typedef struct ovm_except_frame ovm_except_frame_var[1];
 }
 
 #define OVM_EXCEPT_RAISE(_ovm, _code, _src) \
-  (_ovm_except_raise((_ovm), (_code), (_src)))
+  (_ovm_except_raise((_ovm), (_code), (_src), __FILE__, __LINE__))
 
 void ovm_except_arg_get(ovm_t ovm, unsigned dst);

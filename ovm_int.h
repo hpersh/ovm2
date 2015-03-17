@@ -70,16 +70,19 @@ struct ovm_except_frame {
   ovm_inst_t    *sp, *fp;
   int           code;
   ovm_inst_t    arg;
+  const char    *file;
+  unsigned      line;
   unsigned char caughtf;
   jmp_buf       jmp_buf;
 };
 
 void _ovm_except_frame_begin(ovm_t ovm, struct ovm_except_frame *xfr);
-void _ovm_except_raise(ovm_t ovm, int code, unsigned src);
+void _ovm_except_raise(ovm_t ovm, int code, unsigned src, char *file, unsigned line);
 void _ovm_except_reraise(ovm_t ovm);
 void _ovm_expcet_frame_end(ovm_t ovm);
 
-
+#define OVM_CPP_CONCAT(x, y)  x ## y
+#define OVM_EXCEPT_FRAME_VAR(x)  OVM_CPP_CONCAT(__ovm_xfr_, x)
 
 struct ovm {
   struct list inst_page_list[1], inst_free_list[1];

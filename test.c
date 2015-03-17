@@ -257,9 +257,7 @@ main(void)
 
 
 
-  ovm_except_frame_var xfr;
-
-  OVM_EXCEPT_FRAME_BEGIN(ovm, xfr) {
+  OVM_EXCEPT_FRAME_BEGIN(ovm) {
     OVM_EXCEPT_TRY_BEGIN(ovm) {
       foo();
     } OVM_EXCEPT_TRY_END(ovm);
@@ -271,7 +269,7 @@ main(void)
     } OVM_EXCEPT_CATCH_END(ovm);
 
     OVM_EXCEPT_CATCH_BEGIN(ovm, 1) {
-      printf("Uncaught exception (%d)\n", xfr->code);
+      printf("Uncaught exception (%d)\n", OVM_EXCEPT_CODE(ovm));
     } OVM_EXCEPT_CATCH_END(ovm);
 
     OVM_EXCEPT_FINALLY_BEGIN(ovm) {

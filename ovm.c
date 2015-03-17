@@ -150,7 +150,7 @@ list_erase(struct list *node)
   return (node);
 }
 
-static void
+static int
 slice(ovm_intval_t *ofs, ovm_intval_t *len, unsigned size)
 {
   if (*ofs < 0)  *ofs = (ovm_intval_t) size + *ofs;
@@ -159,7 +159,7 @@ slice(ovm_intval_t *ofs, ovm_intval_t *len, unsigned size)
     *len = -*len;
   }
 
-  OVM_ASSERT(*ofs >= 0 && (*ofs + *len) <= size);
+  return (*ofs < 0 || (*ofs + *len) > size ? -1 : 0);
 }
 
 static void
@@ -173,15 +173,6 @@ static unsigned
 sv_eof(struct ovm_strval *sv)
 {
   return (sv->size == 0);
-}
-
-static void
-sv_adv(struct ovm_strval *sv, unsigned n)
-{
-  OVM_ASSERT(n <= sv->size);
-
-  sv->data += n;
-  sv->size -= n;
 }
 
 static void
@@ -523,7 +514,7 @@ _ovm_stk_stats_dn(ovm_t ovm, unsigned n)
 }
 
 static void
-__ovm_except_raise(ovm_t ovm, int code, ovm_inst_t arg)
+__ovm_except_raise(ovm_t ovm, int code, ovm_inst_t arg, char *file, unsigned line)
 {
   struct ovm_except_frame *xfr = ovm->xfp;
   ovm_inst_t              *p;
@@ -539,6 +530,8 @@ __ovm_except_raise(ovm_t ovm, int code, ovm_inst_t arg)
   ovm->fp = xfr->fp;
 
   _ovm_assign(ovm, &xfr->arg, arg);
+  xfr->file = file;
+  xfr->line = line;
 
   longjmp(xfr->jmp_buf, code);
 }
@@ -629,9 +622,12 @@ _xml_parse_bool(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t inst)
 static void
 _ovm_boolean_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_inst_t *argv)
 {
+  ovm_inst_t  arg;
+  ovm_class_t arg_cl;
+
   if (argc > 0) {
-    ovm_inst_t  arg    = argv[0];
-    ovm_class_t arg_cl = _ovm_inst_of(arg);
+    arg    = argv[0];
+    arg_cl = _ovm_inst_of(arg);
 
     if (arg_cl == ovm_cl_integer) {
       BOOLVAL(inst) = (INTVAL(arg) != 0);
@@ -639,19 +635,22 @@ _ovm_boolean_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm
       struct ovm_strval pb[1];
       
       sv_init(pb, STRVAL(arg)->size - 1, STRVAL(arg)->data);
-      if (_xml_parse_bool(ovm, pb, inst) < 0) {
-	__ovm_except_raise(ovm, OVM_EXCEPT_CODE_BAD_VALUE, arg);
-      }
+      if (_xml_parse_bool(ovm, pb, inst) < 0)  goto err;
       sv_spskip(pb);
-      OVM_ASSERT(sv_eof(pb));
+      if (!sv_eof(pb))  goto err;
     } else {
-      OVM_ASSERT(0);
+      goto err;
     }
 
     --argc;  ++argv;
   }
 
   _ovm_init_parent(ovm, inst, cl, argc, argv);
+
+  return;
+
+ err:
+  __ovm_except_raise(ovm, OVM_EXCEPT_CODE_BAD_VALUE, arg, __FILE__, __LINE__);
 }
 
 static void
@@ -2085,7 +2084,9 @@ _ovm_array_at(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 
   ofs = INTVAL(argv[1]);
   len = 1;
-  slice(&ofs, &len, ARRAYVAL(argv[0])->size);
+  if (slice(&ofs, &len, ARRAYVAL(argv[0])->size) < 0) {
+    __ovm_except_raise(ovm, OVM_EXCEPT_CODE_RANGE_ERR, argv[1], __FILE__, __LINE__);
+  }
 
   OVM_CASSIGN(ovm, dst, ARRAYVAL(argv[0])->data[ofs]);
 }
@@ -2909,8 +2910,9 @@ _ovm_except_reraise(ovm_t ovm)
   _ovm_stk_stats_dn(ovm, n);
   ovm->fp = pxfr->fp;
 
-  _ovm_assign(ovm, &pxfr->arg, xfr->arg);
-  _ovm_inst_release(ovm, xfr->arg);
+  __ovm_assign(ovm, &pxfr->arg, xfr->arg);
+  pxfr->file = xfr->file;
+  pxfr->line = xfr->line;
 
   ovm->xfp = pxfr;
 
@@ -2918,11 +2920,11 @@ _ovm_except_reraise(ovm_t ovm)
 }
 
 void
-_ovm_except_raise(ovm_t ovm, int code, unsigned src)
+_ovm_except_raise(ovm_t ovm, int code, unsigned src, char *file, unsigned line)
 {
   REG_CHK(src);
 
-  __ovm_except_raise(ovm, code, ovm->regs[src]);
+  __ovm_except_raise(ovm, code, ovm->regs[src], file, line);
 }
 
 void
