@@ -397,6 +397,41 @@ _ovm_inst_free(ovm_t ovm, ovm_inst_t inst)
   (*cl->free)(ovm, inst, cl);
 }
 
+#ifndef NDEBUG
+
+PRIVATE void
+_ovm_stk_stats_up(ovm_t ovm, unsigned n)
+{
+  if ((ovm->stats->stack_depth += n) > ovm->stats->stack_depth_max) {
+    ovm->stats->stack_depth_max = ovm->stats->stack_depth;
+  }
+}
+
+PRIVATE void
+_ovm_stk_stats_dn(ovm_t ovm, unsigned n)
+{
+  ovm->stats->stack_depth -= n;
+}
+
+#endif
+
+PRIVATE ovm_inst_t *
+_ovm_falloc(ovm_t ovm, unsigned n, ovm_inst_t **old)
+{
+  OVM_ASSERT((ovm->sp - n) >= ovm->stack);
+
+  *old = ovm->fp;
+
+  ovm->fp = ovm->sp;
+  memset(ovm->sp -= n, 0, n * sizeof(*ovm->sp));
+
+#ifndef NDEBUG
+  _ovm_stk_stats_up(ovm, n);
+#endif
+
+  return (ovm->sp);
+}
+
 PRIVATE void
 _ovm_new_run(ovm_t ovm, ovm_inst_t *dst, ovm_class_t cl, unsigned argc, ovm_inst_t *argv)
 {
@@ -432,11 +467,9 @@ __ovm_new(ovm_t ovm, ovm_inst_t *dst, ovm_class_t cl, unsigned argc, ...)
 PRIVATE void
 _ovm_inst_new2(ovm_t ovm, ovm_inst_t *dst, ovm_class_t cl, unsigned argc, ovm_inst_t *argv)
 {
-  void       *old;
-  ovm_inst_t *wp;
+  ovm_inst_t *wp, *old;
 
-  old = ovm_falloc(ovm, 1);
-  wp = ovm->sp;
+  wp = _ovm_falloc(ovm, 1, &old);
 
   _ovm_inst_alloc(ovm, cl, &wp[0]);
   (*cl->init)(ovm, wp[0], cl, argc, argv);
@@ -511,23 +544,15 @@ _ovm_free_parent(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl)
   (*p->free)(ovm, inst, p);
 }
 
-#ifndef NDEBUG
-
 PRIVATE void
-_ovm_stk_stats_up(ovm_t ovm, unsigned n)
+_ovm_except_uncaught(ovm_t ovm, int code, ovm_inst_t arg, const char *file, unsigned line)
 {
-  if ((ovm->stats->stack_depth += n) > ovm->stats->stack_depth_max) {
-    ovm->stats->stack_depth_max = ovm->stats->stack_depth;
-  }
-}
+  printf("\novm: ovm=%p Uncaught exception, code=%d arg=%p file=%s line=%u\n",
+	 ovm, code, arg, file, line
+	 );
 
-PRIVATE void
-_ovm_stk_stats_dn(ovm_t ovm, unsigned n)
-{
-  ovm->stats->stack_depth -= n;
+  abort();
 }
-
-#endif
 
 PRIVATE void
 __ovm_except_raise(ovm_t ovm, int code, ovm_inst_t arg, char *file, unsigned line)
@@ -536,7 +561,8 @@ __ovm_except_raise(ovm_t ovm, int code, ovm_inst_t arg, char *file, unsigned lin
   ovm_inst_t              *p;
   unsigned                n;
 
-  OVM_ASSERT(xfr != 0);
+  if (xfr == 0)  _ovm_except_uncaught(ovm, code, arg, file, line);
+
   OVM_ASSERT(code != 0);
 
   for (n = 0, p = ovm->sp; p < xfr->sp; ++p, ++n) {
@@ -588,7 +614,7 @@ _ovm_object_free(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl)
   }
 }
 
-const struct ovm_class ovm_cl_object[1] = {
+PUBLIC const struct ovm_class ovm_cl_object[1] = {
   { .name = "Object",
     .init = _ovm_object_init,
     .walk = _ovm_object_walk,
@@ -694,7 +720,7 @@ _ovm_boolean_hash(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   _ovm_integer_newc(ovm, dst, BOOLVAL(argv[0]) != 0);
 }
 
-const struct ovm_class ovm_cl_boolean[1] = {
+PUBLIC const struct ovm_class ovm_cl_boolean[1] = {
   { .name   = "Boolean",
     .parent = ovm_cl_object,
     .new    = _ovm_inst_new1,
@@ -705,6 +731,17 @@ const struct ovm_class ovm_cl_boolean[1] = {
       [OVM_METHOD_CALL_SEL_EQUAL] = _ovm_boolean_equal,
       [OVM_METHOD_CALL_SEL_HASH]  = _ovm_boolean_hash
     }
+  }
+};
+
+/***************************************************************************/
+
+PUBLIC const struct ovm_class ovm_cl_number[1] = {
+  { .name   = "Number",
+    .parent = ovm_cl_object,
+    .init   = _ovm_init_parent,
+    .walk   = _ovm_walk_parent,
+    .free   = _ovm_free_parent,
   }
 };
 
@@ -768,33 +805,53 @@ _ovm_integer_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm
 
     if (arg_cl == ovm_cl_boolean) {
       INTVAL(inst) = (BOOLVAL(arg) != 0);
+    } else if (arg_cl == ovm_cl_float) {
+      INTVAL(inst) = (ovm_intval_t) FLOATVAL(arg);
     } else if (arg_cl == ovm_cl_xml) {
       struct ovm_strval pb[1];
       
       sv_init(pb, STRVAL(arg)->size - 1, STRVAL(arg)->data);
-      OVM_ASSERT(_xml_parse_int(ovm, pb, inst) == 0);
+      if (_xml_parse_int(ovm, pb, inst) < 0)  goto err;
       sv_spskip(pb);
-      OVM_ASSERT(sv_eof(pb));
+      if (!sv_eof(pb))  goto err;
     } else {
-      OVM_ASSERT(0);
+      goto err;
     }
 
     --argc;  ++argv;
   }
 
   _ovm_init_parent(ovm, inst, cl, argc, argv);
+
+  return;
+
+ err:
+  __ovm_except_raise(ovm, OVM_EXCEPT_CODE_BAD_VALUE, argv[0], __FILE__, __LINE__);
 }
 
 PRIVATE void
 _ovm_integer_add(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
+  ovm_inst_t   arg;
+  ovm_class_t  arg_cl;
+  ovm_intval_t val;
+
   OVM_ASSERT(_ovm_inst_of(argv[0]) == ovm_cl_integer);
   OVM_ASSERT(argc == 1);
-  OVM_ASSERT(_ovm_inst_of(argv[1]) == ovm_cl_integer);
+  arg    = argv[1];
+  arg_cl = _ovm_inst_of(arg);
+  OVM_ASSERT(_ovm_is_subclass_of(arg_cl, ovm_cl_number));
 
   if (dst == 0)  return;
 
-  _ovm_integer_newc(ovm, dst, INTVAL(argv[0]) + INTVAL(argv[1]));
+  val = INTVAL(argv[0]);
+  if (arg_cl == ovm_cl_integer) {
+    val += INTVAL(arg);
+  } else if (arg_cl == ovm_cl_float) {
+    val += (ovm_intval_t) FLOATVAL(arg);
+  } else  OVM_ASSERT(0);
+
+  _ovm_integer_newc(ovm, dst, val);
 }
 
 PRIVATE void
@@ -825,9 +882,9 @@ _ovm_integer_hash(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   _ovm_integer_newc(ovm, dst, crc32_get(h));
 }
 
-const struct ovm_class ovm_cl_integer[1] = {
+PUBLIC const struct ovm_class ovm_cl_integer[1] = {
   { .name   = "Integer",
-    .parent = ovm_cl_object,
+    .parent = ovm_cl_number,
     .new    = _ovm_inst_new1,
     .init   = _ovm_integer_init,
     .walk   = _ovm_walk_parent,
@@ -960,11 +1017,9 @@ _ovm_string_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_
       
       _ovm_strval_initc(ovm, inst, 1, nn, buf);
     } else if (arg_cl == ovm_cl_pair) {
-      void *old;
-      ovm_inst_t *wp;
+      ovm_inst_t *wp, *old;
 
-      old = ovm_falloc(ovm, 5);
-      wp = ovm->sp;
+      wp = _ovm_falloc(ovm, 5, &old);
 
       _ovm_string_newc(ovm, &wp[0], "<");
       __ovm_new(ovm, &wp[1], ovm_cl_string, 1, CAR(arg));
@@ -978,12 +1033,10 @@ _ovm_string_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_
     } else if (arg_cl == ovm_cl_list) {
       unsigned n = _list_len(arg);
       unsigned nn = 1 + (n < 1 ? n : 2 * n - 1) + 1;
-      void *old;
       unsigned i;
-      ovm_inst_t *wp, p, *q;
+      ovm_inst_t *wp, *old, p, *q;
 
-      old = ovm_falloc(ovm, nn + 1);
-      wp = ovm->sp;
+      wp = _ovm_falloc(ovm, nn + 1, &old);
 
       _ovm_string_newc(ovm, &wp[0], ", ");
 
@@ -1005,12 +1058,10 @@ _ovm_string_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_
     } else if (arg_cl == ovm_cl_array) {
       unsigned n = ARRAYVAL(arg)->size;
       unsigned nn = 1 + (n < 1 ? n : 2 * n - 1) + 1;
-      void *old;
       unsigned i;
-      ovm_inst_t *wp, *p, *q;
+      ovm_inst_t *wp, *old, *p, *q;
 
-      old = ovm_falloc(ovm, nn + 1);
-      wp = ovm->sp;
+      wp = _ovm_falloc(ovm, nn + 1, &old);
 
       _ovm_string_newc(ovm, &wp[0], ", ");
 
@@ -1032,12 +1083,10 @@ _ovm_string_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_
     } else if (arg_cl == ovm_cl_set) {
       unsigned n = SETVAL(arg)->cnt;
       unsigned nn = 1 + (n < 1 ? n : 2 * n - 1) + 1;
-      void *old;
       unsigned i;
-      ovm_inst_t *wp, *p, *q, r;
+      ovm_inst_t *wp, *old, *p, *q, r;
 
-      old = ovm_falloc(ovm, nn + 1);
-      wp = ovm->sp;
+      wp = _ovm_falloc(ovm, nn + 1, &old);
 
       _ovm_string_newc(ovm, &wp[0], ", ");
 
@@ -1061,12 +1110,10 @@ _ovm_string_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_
     } else if (arg_cl == ovm_cl_dictionary) {
       unsigned n = SETVAL(arg)->cnt;
       unsigned nn = 1 + (n < 1 ? n : 4 * n - 1) + 1;
-      void *old;
       unsigned i;
-      ovm_inst_t *wp, *p, *q, r, s;
+      ovm_inst_t *wp, *old, *p, *q, r, s;
 
-      old = ovm_falloc(ovm, nn + 2);
-      wp = ovm->sp;
+      wp = _ovm_falloc(ovm, nn + 2, &old);
 
       _ovm_string_newc(ovm, &wp[0], ": ");
       _ovm_string_newc(ovm, &wp[1], ", ");
@@ -1142,7 +1189,7 @@ _ovm_string_hash(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   _ovm_integer_newc(ovm, dst, crc32_get(h));
 }
 
-const struct ovm_class ovm_cl_string[1] = {
+PUBLIC const struct ovm_class ovm_cl_string[1] = {
   { .name   = "String",
     .parent = ovm_cl_object,
     .new    = _ovm_inst_new1,
@@ -1270,11 +1317,9 @@ _ovm_xml_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_ins
       
     _ovm_strval_initc(ovm, inst, 1, nn, buf);
   } else if (arg_cl == ovm_cl_pair) {
-    void *old;
-    ovm_inst_t *wp;
+    ovm_inst_t *wp, *old;
 
-    old = ovm_falloc(ovm, 4);
-    wp = ovm->sp;
+    wp = _ovm_falloc(ovm, 4, &old);
 
     _ovm_string_newc(ovm, &wp[0], "<Pair>");
     __ovm_new(ovm, &wp[1], ovm_cl_xml, 1, CAR(arg));
@@ -1287,11 +1332,9 @@ _ovm_xml_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_ins
   } else if (arg_cl == ovm_cl_list) {
     unsigned n = _list_len(arg);
     unsigned nn = 1 + n + 1;
-    void *old;
-    ovm_inst_t *wp, p, *q;
+    ovm_inst_t *wp, *old, p, *q;
 
-    old = ovm_falloc(ovm, nn);
-    wp = ovm->sp;
+    wp = _ovm_falloc(ovm, nn, &old);
 
     q = wp;
 
@@ -1309,11 +1352,9 @@ _ovm_xml_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_ins
   } else if (arg_cl == ovm_cl_array) {
     unsigned n = ARRAYVAL(arg)->size;
     unsigned nn = 1 + n + 1;
-    void *old;
-    ovm_inst_t *wp, *p, *q;
+    ovm_inst_t *wp, *old, *p, *q;
 
-    old = ovm_falloc(ovm, nn);
-    wp = ovm->sp;
+    wp = _ovm_falloc(ovm, nn, &old);
 
     q = wp;
 
@@ -1331,11 +1372,9 @@ _ovm_xml_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_ins
   } else if (arg_cl == ovm_cl_set) {
     unsigned n = SETVAL(arg)->cnt;
     unsigned nn = 1 + n + 1;
-    void *old;
-    ovm_inst_t *wp, *p, *q, r;
+    ovm_inst_t *wp, *old, *p, *q, r;
 
-    old = ovm_falloc(ovm, nn);
-    wp = ovm->sp;
+    wp = _ovm_falloc(ovm, nn, &old);
 
     q = wp;
 
@@ -1355,11 +1394,9 @@ _ovm_xml_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_ins
   } else if (arg_cl == ovm_cl_dictionary) {
     unsigned n = SETVAL(arg)->cnt;
     unsigned nn = 1 + n + 1;
-    void *old;
-    ovm_inst_t *wp, *p, *q, r;
+    ovm_inst_t *wp, *old, *p, *q, r;
 
-    old = ovm_falloc(ovm, nn);
-    wp = ovm->sp;
+    wp = _ovm_falloc(ovm, nn, &old);
 
     q = wp;
 
@@ -1389,12 +1426,9 @@ PRIVATE int
 __xml_parse(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t *dst, ovm_class_t cl, int (*func)(ovm_t, struct ovm_strval *, ovm_inst_t))
 {
   int result;
-
-  void *old;
-  ovm_inst_t *wp;
+  ovm_inst_t *wp, *old;
   
-  old = ovm_falloc(ovm, 1);
-  wp = ovm->sp;
+  wp = _ovm_falloc(ovm, 1, &old);
   
   _ovm_inst_alloc(ovm, cl, &wp[0]);
   result = (*func)(ovm, pb, wp[0]);
@@ -1446,13 +1480,18 @@ _ovm_xml_parse(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 
   sv_init(pb, STRVAL(argv[0])->size - 1, STRVAL(argv[0])->data);
 
-  OVM_ASSERT(_xml_parse(ovm, pb, dst) == 0);
+  if (_xml_parse(ovm, pb, dst) < 0)  goto err;
 
   sv_spskip(pb);
-  OVM_ASSERT(sv_eof(pb));
+  if (!sv_eof(pb))  goto err;
+
+  return;
+
+ err:
+  __ovm_except_raise(ovm, OVM_EXCEPT_CODE_BAD_VALUE, argv[0], __FILE__, __LINE__);
 }
 
-const struct ovm_class ovm_cl_xml[1] = {
+PUBLIC const struct ovm_class ovm_cl_xml[1] = {
   { .name   = "Xml",
     .parent = ovm_cl_string,
     .new    = _ovm_inst_new1,
@@ -1593,7 +1632,7 @@ _ovm_bmap_hash(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   _ovm_integer_newc(ovm, dst, crc32_get(h));
 }
 
-const struct ovm_class ovm_cl_bitmap[1] = {
+PUBLIC const struct ovm_class ovm_cl_bitmap[1] = {
   { .name   = "Bitmap",
     .parent = ovm_cl_object,
     .new    = _ovm_inst_new1,
@@ -1614,11 +1653,9 @@ PRIVATE const struct ovm_class ovm_cl_dptr[1];
 PRIVATE void
 _ovm_dptr_newc(ovm_t ovm, ovm_inst_t *dst, ovm_class_t cl, ovm_inst_t car, ovm_inst_t cdr)
 {
-  void *old;
-  ovm_inst_t *wp;
+  ovm_inst_t *wp, *old;
 
-  old = ovm_falloc(ovm, 1);
-  wp = ovm->sp;
+  wp = _ovm_falloc(ovm, 1, &old);
 
   _ovm_inst_alloc(ovm, cl, &wp[0]);
   _ovm_assign(ovm, &CAR(wp[0]), car);
@@ -1672,16 +1709,14 @@ _ovm_dptr_cdr(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 PRIVATE void
 _ovm_dptr_equal(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
-  void     *old;
   unsigned f;
-  ovm_inst_t *wp;
+  ovm_inst_t *wp, *old;
 
   OVM_ASSERT(_ovm_is_kind_of(argv[0], ovm_cl_dptr));
   OVM_ASSERT(argc == 1);
   OVM_ASSERT(_ovm_is_kind_of(argv[1], ovm_cl_dptr));
 
-  old = ovm_falloc(ovm, 1);
-  wp = ovm->sp;
+  wp = _ovm_falloc(ovm, 1, &old);
 
   __ovm_method_call(ovm, &wp[0], CAR(argv[0]), OVM_METHOD_CALL_SEL_EQUAL, 1, CAR(argv[1]));
   f = BOOLVAL(wp[0]);
@@ -1698,15 +1733,13 @@ _ovm_dptr_equal(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 PRIVATE void
 _ovm_dptr_hash(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
-  void     *old;
   unsigned h;
-  ovm_inst_t *wp;
+  ovm_inst_t *wp, *old;
 
   OVM_ASSERT(_ovm_is_kind_of(argv[0], ovm_cl_dptr));
   OVM_ASSERT(argc == 0);
 
-  old = ovm_falloc(ovm, 1);
-  wp = ovm->sp;
+  wp = _ovm_falloc(ovm, 1, &old);
 
   __ovm_method_call(ovm, &wp[0], CAR(argv[0]), OVM_METHOD_CALL_SEL_HASH, 0);
   h = INTVAL(wp[0]);
@@ -1735,7 +1768,7 @@ PRIVATE const struct ovm_class ovm_cl_dptr[1] = {
 
 /***************************************************************************/
 
-const struct ovm_class ovm_cl_pair[1] = {
+PUBLIC const struct ovm_class ovm_cl_pair[1] = {
   { .name   = "Pair",
     .parent = ovm_cl_dptr,
     .new    = _ovm_inst_new1,
@@ -1765,8 +1798,7 @@ PRIVATE int
 _xml_parse_list2(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t *dst)
 {
   struct ovm_strval pb2[1];
-  void              *old;
-  ovm_inst_t        *wp, *p;
+  ovm_inst_t        *wp, *old, *p;
 
   *pb2 = *pb;
 
@@ -1774,8 +1806,7 @@ _xml_parse_list2(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t *dst)
 
   sv_trim(pb2, pb, 7);
 
-  old = ovm_falloc(ovm, 2);
-  wp = ovm->sp;
+  wp = _ovm_falloc(ovm, 2, &old);
 
   for (p = wp;;) {
     sv_spskip(pb2);
@@ -1803,8 +1834,7 @@ _xml_parse_list(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t *dst)
 PRIVATE void
 _ovm_list_new(ovm_t ovm, ovm_inst_t *dst, ovm_class_t cl, unsigned argc, ovm_inst_t *argv)
 {
-  void       *old;
-  ovm_inst_t *wp;
+  ovm_inst_t *wp, *old;
 
   if (argc == 1) {
     ovm_inst_t arg     = argv[0];
@@ -1834,8 +1864,7 @@ _ovm_list_new(ovm_t ovm, ovm_inst_t *dst, ovm_class_t cl, unsigned argc, ovm_ins
   if (argc == 2) {
     OVM_ASSERT(argv[1] == 0 || _ovm_inst_of(argv[1]) == ovm_cl_list);
     
-    old = ovm_falloc(ovm, 1);
-    wp = ovm->sp;
+    wp = _ovm_falloc(ovm, 1, &old);
     
     _ovm_inst_alloc(ovm, cl, &wp[0]);
     _ovm_init_parent(ovm, wp[0], cl, argc, argv);
@@ -1852,16 +1881,14 @@ _ovm_list_new(ovm_t ovm, ovm_inst_t *dst, ovm_class_t cl, unsigned argc, ovm_ins
 PRIVATE void
 _ovm_list_equal(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
-  void     *old;
   unsigned f;
-  ovm_inst_t *wp, p, q;
+  ovm_inst_t *wp, *old, p, q;
 
   OVM_ASSERT(_ovm_is_kind_of(argv[0], ovm_cl_list));
   OVM_ASSERT(argc == 1);
   OVM_ASSERT(_ovm_is_kind_of(argv[1], ovm_cl_list));
 
-  old = ovm_falloc(ovm, 1);
-  wp = ovm->sp;
+  wp = _ovm_falloc(ovm, 1, &old);
 
   for (f = 1, p = argv[0], q = argv[1]; p && q; p = CDR(p), q = CDR(q)) {
     __ovm_method_call(ovm, &wp[0], CAR(p), OVM_METHOD_CALL_SEL_EQUAL, 1, CAR(q));
@@ -1878,15 +1905,13 @@ _ovm_list_equal(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 PRIVATE void
 _ovm_list_hash(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
-  void     *old;
   unsigned h;
-  ovm_inst_t *wp, p;
+  ovm_inst_t *wp, *old, p;
 
   OVM_ASSERT(_ovm_is_kind_of(argv[0], ovm_cl_list));
   OVM_ASSERT(argc == 0);
 
-  old = ovm_falloc(ovm, 1);
-  wp = ovm->sp;
+  wp = _ovm_falloc(ovm, 1, &old);
 
   for (h = 0, p = argv[0]; p; p = CDR(p)) {
     __ovm_method_call(ovm, &wp[0], CAR(p), OVM_METHOD_CALL_SEL_HASH, 0);
@@ -1898,7 +1923,7 @@ _ovm_list_hash(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   _ovm_integer_newc(ovm, dst, h);
 }
 
-const struct ovm_class ovm_cl_list[1] = {
+PUBLIC const struct ovm_class ovm_cl_list[1] = {
   { .name   = "List",
     .parent = ovm_cl_dptr,
     .new    = _ovm_list_new,
@@ -1941,8 +1966,7 @@ _xml_parse_array2(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t inst)
 {
   int               result = -1;
   struct ovm_strval pb2[1], pb3[1];
-  void              *old;
-  ovm_inst_t        *wp, *p;
+  ovm_inst_t        *wp, *old, *p;
   unsigned          size;
 
   *pb2 = *pb;
@@ -1953,8 +1977,7 @@ _xml_parse_array2(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t inst)
 
   *pb3 = *pb2;
 
-  old = ovm_falloc(ovm, 1);
-  wp = ovm->sp;
+  wp = _ovm_falloc(ovm, 1, &old);
 
   for (size = 0;; ++size) {
     sv_spskip(pb3);
@@ -2105,7 +2128,7 @@ _ovm_array_at_put(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   OVM_CASSIGN(ovm, dst, argv[2]);
 }
 
-const struct ovm_class ovm_cl_array[1] = {
+PUBLIC const struct ovm_class ovm_cl_array[1] = {
   { .name   = "Array",
     .parent = ovm_cl_object,
     .new    = _ovm_inst_new2,
@@ -2140,11 +2163,9 @@ round_up_to_power_of_2(unsigned i)
 PRIVATE ovm_inst_t *
 _set_find(ovm_t ovm, ovm_inst_t set, ovm_inst_t val, ovm_inst_t **bb)
 {
-  void *old;
-  ovm_inst_t *wp, *b, *p, q;
+  ovm_inst_t *wp, *old, *b, *p, q;
 
-  old = ovm_falloc(ovm, 1);
-  wp = ovm->sp;
+  wp = _ovm_falloc(ovm, 1, &old);
 
   __ovm_method_call(ovm, &wp[0], val, OVM_METHOD_CALL_SEL_HASH, 0);
   b = &SETVAL(set)->base->data[INTVAL(wp[0]) & (SETVAL(set)->base->size - 1)];
@@ -2174,11 +2195,9 @@ _set_put(ovm_t ovm, ovm_inst_t set, ovm_inst_t val)
   ovm_inst_t *b;
 
   if (_set_find(ovm, set, val, &b) == 0) {
-    void *old;
-    ovm_inst_t *wp;
+    ovm_inst_t *wp, *old;
 
-    old = ovm_falloc(ovm, 1);
-    wp = ovm->sp;
+    wp = _ovm_falloc(ovm, 1, &old);
 
     _ovm_dptr_newc(ovm, &wp[0], ovm_cl_list, val, *b);
     _ovm_assign(ovm, b, wp[0]);
@@ -2292,7 +2311,7 @@ _ovm_set_put(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   OVM_CASSIGN(ovm, dst, argv[1]);
 }
 
-const struct ovm_class ovm_cl_set[1] = {
+PUBLIC const struct ovm_class ovm_cl_set[1] = {
   { .name   = "Set",
     .parent = ovm_cl_array,
     .new    = _ovm_inst_new2,
@@ -2312,11 +2331,9 @@ const struct ovm_class ovm_cl_set[1] = {
 PRIVATE ovm_inst_t *
 _dict_find(ovm_t ovm, ovm_inst_t dict, ovm_inst_t key, ovm_inst_t **bb)
 {
-  void *old;
-  ovm_inst_t *wp, *b, *p, q;
+  ovm_inst_t *wp, *old, *b, *p, q;
 
-  old = ovm_falloc(ovm, 1);
-  wp = ovm->sp;
+  wp = _ovm_falloc(ovm, 1, &old);
 
   __ovm_method_call(ovm, &wp[0], key, OVM_METHOD_CALL_SEL_HASH, 0);
   b = &SETVAL(dict)->base->data[INTVAL(wp[0]) & (SETVAL(dict)->base->size - 1)];
@@ -2350,11 +2367,9 @@ _dict_at_put(ovm_t ovm, ovm_inst_t dict, ovm_inst_t key, ovm_inst_t val)
 
   p = _dict_find(ovm, dict, key, &b);
   if (p == 0) {
-    void *old;
-    ovm_inst_t *wp;
+    ovm_inst_t *wp, *old;
 
-    old = ovm_falloc(ovm, 1);
-    wp = ovm->sp;
+    wp = _ovm_falloc(ovm, 1, &old);
 
     _ovm_dptr_newc(ovm, &wp[0], ovm_cl_pair, key, val);
     _ovm_dptr_newc(ovm, &wp[0], ovm_cl_list, wp[0], *b);
@@ -2494,7 +2509,7 @@ _ovm_dict_del(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   OVM_CASSIGN(ovm, dst, argv[1]);
 }
 
-const struct ovm_class ovm_cl_dictionary[1] = {
+PUBLIC const struct ovm_class ovm_cl_dictionary[1] = {
   { .name   = "Dictionary",
     .parent = ovm_cl_set,
     .new    = _ovm_inst_new2,
@@ -2517,6 +2532,17 @@ ovm_is_nil(ovm_t ovm, unsigned src)
   REG_CHK(src);
 
   return (ovm->regs[src] == 0);
+}
+
+PUBLIC unsigned
+ovm_is_true(ovm_t ovm, unsigned src)
+{
+  ovm_inst_t inst;
+
+  REG_CHK(src);
+
+  inst = ovm->regs[src];
+  return (_ovm_inst_of(inst) == ovm_cl_boolean && BOOLVAL(inst) != 0);
 }
 
 PUBLIC ovm_class_t
@@ -2674,20 +2700,11 @@ ovm_dropm(ovm_t ovm, unsigned n)
 PUBLIC void *
 ovm_falloc(ovm_t ovm, unsigned n)
 {
-  void *result;
+  ovm_inst_t *old;
 
-  OVM_ASSERT((ovm->sp - n) >= ovm->stack);
+  _ovm_falloc(ovm, n, &old);
 
-  result = ovm->fp;
-
-  ovm->fp = ovm->sp;
-  memset(ovm->sp -= n, 0, n * sizeof(*ovm->sp));
-
-#ifndef NDEBUG
-  _ovm_stk_stats_up(ovm, n);
-#endif
-
-  return (result);
+  return (old);
 }
 
 PUBLIC void
@@ -2914,7 +2931,7 @@ _ovm_except_reraise(ovm_t ovm)
 
   OVM_ASSERT(xfr != 0);
   pxfr = xfr->prev;
-  OVM_ASSERT(pxfr != 0);
+  if (pxfr == 0)  _ovm_except_uncaught(ovm, xfr->code, xfr->arg, xfr->file, xfr->line);
 
   for (n = 0, p = ovm->sp; p < pxfr->sp; ++p, ++n) {
     _ovm_inst_release(ovm, *p);

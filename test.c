@@ -71,7 +71,7 @@ main(void)
 
 #endif
 
-#if 1
+#if 0
   unsigned n;
 
   ovm_integer_newc(ovm, R1, 0);
@@ -246,7 +246,7 @@ main(void)
 
 #endif
 
-#if 0
+#if 1
 
   void foo(void)
     {
@@ -262,15 +262,13 @@ main(void)
       foo();
     } OVM_EXCEPT_TRY_END(ovm);
 
+#if 0
     OVM_EXCEPT_CATCH_BEGIN(ovm, OVM_EXCEPT_CODE(ovm) == 1) {
       printf("Got bad value: ");
       ovm_except_arg_get(ovm, R1);
       inst_print(ovm, R1);
     } OVM_EXCEPT_CATCH_END(ovm);
-
-    OVM_EXCEPT_CATCH_BEGIN(ovm, 1) {
-      printf("Uncaught exception (%d)\n", OVM_EXCEPT_CODE(ovm));
-    } OVM_EXCEPT_CATCH_END(ovm);
+#endif
 
     OVM_EXCEPT_FINALLY_BEGIN(ovm) {
       printf("No exception\n");

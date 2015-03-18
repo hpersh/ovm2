@@ -75,6 +75,18 @@ void ovm_init(ovm_t ovm, unsigned inst_page_size, void *glob, unsigned glob_size
 unsigned ovm_is_nil(ovm_t ovm, unsigned src);
 
 /**
+ * @brief Test if a register contains Boolean "true"
+ *
+ * For a given VM register, return 1 if the register contains the Boolean value "true", else return 0.
+ *
+ * @param[in] ovm Virtual machine
+ * @param[in] src Source register
+ *
+ * @return 0 iff given register contains nil
+ */
+unsigned ovm_is_true(ovm_t ovm, unsigned src);
+
+/**
  * @brief Get class of object
  *
  * Return the class of the object in the given VM register.
@@ -115,6 +127,15 @@ void ovm_fstore(ovm_t ovm, int dst, unsigned src);
 void ovm_gload(ovm_t ovm, unsigned dst, unsigned src);
 void ovm_gstore(ovm_t ovm, unsigned dst, unsigned src);
 
+/**
+ * @brief Create a new instance
+ *
+ * @param[in] _ovm Virtual machine
+ * @param[in] _dst Destination register
+ * @param[in] _cl  Class of new instance
+ *
+ * @exception OVM_EXCEPT_BAD_VALUE Bad argument value
+ */
 #define OVM_NEW(_ovm, _dst, _cl, ...) \
   (_ovm_new((_ovm), (_dst), (_cl), sizeof((unsigned []) { 0, ## __VA_ARGS__ }) / sizeof(unsigned) - 1, ## __VA_ARGS__))
 #define OVM_METHOD_CALL(_ovm, _dst, _recvr, _sel, ...) \
@@ -151,6 +172,7 @@ typedef struct ovm ovm_var[1];
 
 const struct ovm_class ovm_cl_object[1];
 const struct ovm_class ovm_cl_boolean[1];
+const struct ovm_class ovm_cl_number[1];
 const struct ovm_class ovm_cl_integer[1];
 const struct ovm_class ovm_cl_float[1];
 const struct ovm_class ovm_cl_string[1];
