@@ -14,5 +14,10 @@ static:
 debug:
 	gcc -g -pg -o test ovm.c test.c
 
+hll:
+	bison -d -t hll.y
+	flex -d hll.l
+	gcc -DYYDEBUG=1 lex.yy.c hll.tab.c hll.c
+
 clean:
 	rm -f *~ *.o *.so test *.core

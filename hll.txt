@@ -1,0 +1,30 @@
+
+
+
+
+
+
+
+
+function foo(a, b)
+{
+	locals u, v, result;
+
+	try {
+		result := Array.new(10);
+
+		u.foo(v).bar(result, a);
+
+		if (a) {
+		   b.y();
+	   	} else {
+		   result := Array.new(20);
+		}
+	}
+	catch (12) {
+	}
+	finally {
+	}
+
+	return (result);
+}

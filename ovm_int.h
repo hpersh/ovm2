@@ -11,7 +11,22 @@ typedef struct ovm_inst  *ovm_inst_t;
 typedef void (*ovm_method_call_t)(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv);
 
 enum {
-  R0 = 0, R1, R2, R3, R4, R5, R6, R7,
+  OVM_R0 = 0,
+  OVM_R1,
+  OVM_R2,
+  OVM_R3,
+  OVM_R4,
+  OVM_R5,
+  OVM_R6,
+  OVM_R7,
+  OVM_R8,
+  OVM_R9,
+  OVM_R10,
+  OVM_R11,
+  OVM_R12,
+  OVM_R13,
+  OVM_R14,
+  OVM_R15,
   OVM_NUM_REGS
 };
 

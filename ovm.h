@@ -191,8 +191,8 @@ enum {
 };
 
 enum {
-  OVM_EXCEPT_CODE_BAD_VALUE = 1,
-  OVM_EXCEPT_CODE_RANGE_ERR
+  OVM_EXCEPT_CODE_BAD_VALUE = 1, /**< Bad value for argument */
+  OVM_EXCEPT_CODE_RANGE_ERR	 /**< Argument out of range  */
 };
 
 #define OVM_EXCEPT_FRAME_BEGIN(_ovm) \

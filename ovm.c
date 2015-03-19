@@ -840,7 +840,7 @@ _ovm_integer_add(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   OVM_ASSERT(argc == 1);
   arg    = argv[1];
   arg_cl = _ovm_inst_of(arg);
-  OVM_ASSERT(_ovm_is_subclass_of(arg_cl, ovm_cl_number));
+  OVM_ASSERT(ovm_is_subclass_of(arg_cl, ovm_cl_number));
 
   if (dst == 0)  return;
 
@@ -2147,7 +2147,7 @@ PUBLIC const struct ovm_class ovm_cl_array[1] = {
 PRIVATE unsigned
 round_up_to_power_of_2(unsigned i)
 {
-  unsigned result, j;
+  unsigned j;
 
   OVM_ASSERT(i > 0);
 
@@ -2195,16 +2195,9 @@ _set_put(ovm_t ovm, ovm_inst_t set, ovm_inst_t val)
   ovm_inst_t *b;
 
   if (_set_find(ovm, set, val, &b) == 0) {
-    ovm_inst_t *wp, *old;
-
-    wp = _ovm_falloc(ovm, 1, &old);
-
-    _ovm_dptr_newc(ovm, &wp[0], ovm_cl_list, val, *b);
-    _ovm_assign(ovm, b, wp[0]);
+    _ovm_dptr_newc(ovm, b, ovm_cl_list, val, *b);
 
     ++SETVAL(set)->cnt;
-
-    ovm_ffree(ovm, old);
   }
 }
 
@@ -2372,8 +2365,7 @@ _dict_at_put(ovm_t ovm, ovm_inst_t dict, ovm_inst_t key, ovm_inst_t val)
     wp = _ovm_falloc(ovm, 1, &old);
 
     _ovm_dptr_newc(ovm, &wp[0], ovm_cl_pair, key, val);
-    _ovm_dptr_newc(ovm, &wp[0], ovm_cl_list, wp[0], *b);
-    _ovm_assign(ovm, b, wp[0]);
+    _ovm_dptr_newc(ovm, b, ovm_cl_list, wp[0], *b);
 
     ++SETVAL(dict)->cnt;
 
@@ -2976,7 +2968,9 @@ ovm_except_arg_get(ovm_t ovm, unsigned dst)
   OVM_ASSERT(ovm->xfp);
   REG_CHK(dst);
 
-  OVM_CASSIGN(ovm, &ovm->regs[dst], ovm->xfp->arg);
+  if (dst == 0)  return;
+
+  _ovm_assign(ovm, &ovm->regs[dst], ovm->xfp->arg);
 }
 
 PUBLIC void
