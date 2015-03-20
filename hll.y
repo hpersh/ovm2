@@ -1,3 +1,8 @@
+%{
+
+#define YYSTYPE  char *
+
+  %}
 
 %token TOK_PRIVATE
 %token TOK_PUBLIC
@@ -25,6 +30,8 @@
 
 %%
 
+identifier: TOK_IDENTIFIER;
+
 expr_list:
 	expr_list TOK_COMMA expr
 	| expr
@@ -36,18 +43,23 @@ expr_list_or_empty:
 	;
 
 function_call:
-	expr TOK_DOT TOK_IDENTIFIER TOK_LPAREN expr_list_or_empty TOK_RPAREN
+	identifier TOK_LPAREN expr_list_or_empty TOK_RPAREN
+	;
+
+method_call:
+	expr TOK_DOT identifier TOK_LPAREN expr_list_or_empty TOK_RPAREN
 	;
 
 expr:
 	TOK_LPAREN expr TOK_RPAREN
-	| function_call
-	| TOK_IDENTIFIER
 	| TOK_INTEGER
+	| identifier
+	| function_call
+	| method_call
 	;
 
 assignment_statement:
-	TOK_IDENTIFIER TOK_ASSIGN expr TOK_SEMIC
+	identifier TOK_ASSIGN expr TOK_SEMIC
 	;
 
 if_statement:
@@ -132,13 +144,13 @@ globals_declaration:
 	scope_optional TOK_GLOBALS identifier_list_or_empty TOK_SEMIC
 	;
 
-function_name: TOK_IDENTIFIER;
+function_name: identifier;
 
 function_body: statement_block;
 
 identifier_list:
-	identifier_list TOK_COMMA TOK_IDENTIFIER
-	| TOK_IDENTIFIER
+	identifier_list TOK_COMMA identifier
+	| identifier
 	;
 
 identifier_list_or_empty:
