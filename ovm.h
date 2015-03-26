@@ -1,19 +1,24 @@
-typedef unsigned char      ovm_boolval_t;
-typedef long long          ovm_intval_t;
-typedef unsigned long long ovm_uintval_t;
-typedef long double        ovm_floatval_t;
-typedef unsigned long      ovm_bmval_unit_t;
+#include "ovm_cfg.h"
+
+struct ovm;
+typedef struct ovm *ovm_t;
+
 enum {
-  OVM_BMVAL_UNIT_BITS_LOG2 = 5,
-  OVM_BMVAL_UNIT_BITS      = 1 << OVM_BMVAL_UNIT_BITS_LOG2
-};
-struct ovm_strval {
-  unsigned   size;
-  const char *data;
-};
-struct ovm_bmval {
-  unsigned               size;
-  const ovm_bmval_unit_t *data;
+  OVM_CL_OBJECT,
+  OVM_CL_BOOLEAN,
+  OVM_CL_NUMBER,
+  OVM_CL_INTEGER,
+  OVM_CL_FLOAT,
+  OVM_CL_STRING,
+  OVM_CL_XML,
+  OVM_CL_BITMAP,
+  OVM_CL_DPTR,
+  OVM_CL_PAIR,
+  OVM_CL_LIST,
+  OVM_CL_ARRAY,
+  OVM_CL_SET,
+  OVM_CL_DICTIONARY,
+  OVM_NUM_CLS
 };
 
 /**
@@ -43,12 +48,6 @@ enum {
   OVM_METHOD_CALL_SEL_XOR,
   OVM_METHOD_CALL_NUM_SELS
 };
-
-struct ovm;
-typedef struct ovm *ovm_t;
-
-struct ovm_class;
-typedef const struct ovm_class *ovm_class_t;
 
 /**
  * @brief Initialize a virtual machine
@@ -96,7 +95,7 @@ unsigned ovm_is_true(ovm_t ovm, unsigned src);
  *
  * @return Class of object in given register
  */
-ovm_class_t ovm_inst_of(ovm_t ovm, unsigned src);
+unsigned ovm_inst_of(ovm_t ovm, unsigned src);
 
 /**
  * @brief Get name of class
@@ -107,12 +106,12 @@ ovm_class_t ovm_inst_of(ovm_t ovm, unsigned src);
  *
  * @return Pointer to name (character string) of class
  */
-const char *ovm_class_name(ovm_class_t cl);
+const char *ovm_class_name(unsigned cl);
 
 
-ovm_class_t ovm_class_parent(ovm_class_t cl);
-unsigned    ovm_is_subclass_of(ovm_class_t cl1, ovm_class_t cl2);
-unsigned    ovm_is_kind_of(ovm_t ovm, unsigned src, ovm_class_t cl);
+unsigned ovm_class_parent(unsigned cl);
+unsigned ovm_is_subclass_of(unsigned cl1, unsigned cl2);
+unsigned ovm_is_kind_of(ovm_t ovm, unsigned src, unsigned cl);
 void ovm_move(ovm_t ovm, unsigned dst, unsigned src);
 void ovm_push(ovm_t ovm, unsigned src);
 void ovm_pushm(ovm_t ovm, unsigned src, unsigned n);
@@ -170,26 +169,6 @@ void ovm_stats_print(ovm_t ovm);
 
 typedef struct ovm ovm_var[1];
 
-const struct ovm_class ovm_cl_object[1];
-const struct ovm_class ovm_cl_boolean[1];
-const struct ovm_class ovm_cl_number[1];
-const struct ovm_class ovm_cl_integer[1];
-const struct ovm_class ovm_cl_float[1];
-const struct ovm_class ovm_cl_string[1];
-const struct ovm_class ovm_cl_xml[1];
-const struct ovm_class ovm_cl_bitmap[1];
-const struct ovm_class ovm_cl_pair[1];
-const struct ovm_class ovm_cl_list[1];
-const struct ovm_class ovm_cl_array[1];
-const struct ovm_class ovm_cl_set[1];
-enum {
-  OVM_SET_SIZE_DFLT = 32	/**< Default (hash table) size for Set */
-};
-const struct ovm_class ovm_cl_dictionary[1];
-enum {
-  OVM_DICT_SIZE_DFLT = 32	/**< Default (hash table) size for Dictionary */
-};
-
 enum {
   OVM_EXCEPT_CODE_BAD_VALUE = 1, /**< Bad value for argument */
   OVM_EXCEPT_CODE_RANGE_ERR	 /**< Argument out of range  */
@@ -205,10 +184,6 @@ enum {
  
 #define OVM_EXCEPT_TRY_END(_ovm) \
   }
- 
-#define OVM_EXCEPT_CODE(_ovm)  ((_ovm)->xfp->code)
-#define OVM_EXCEPT_FILE(_ovm)  ((_ovm)->xfp->file)
-#define OVM_EXCEPT_LINE(_ovm)  ((_ovm)->xfp->line)
 
 #define OVM_EXCEPT_CATCH_BEGIN(_ovm, _cond) \
   if ((_ovm)->xfp->code != 0 && !(_ovm)->xfp->caughtf && (_cond)) {
@@ -230,4 +205,7 @@ enum {
 #define OVM_EXCEPT_RAISE(_ovm, _code, _src) \
   (_ovm_except_raise((_ovm), (_code), (_src), __FILE__, __LINE__))
 
+static inline int        ovm_except_code(ovm_t ovm);
+static inline const char *ovm_except_file(ovm_t ovm);
+static inline unsigned   ovm_except_line(ovm_t ovm);
 void ovm_except_arg_get(ovm_t ovm, unsigned dst);

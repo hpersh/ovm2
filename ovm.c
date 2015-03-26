@@ -263,16 +263,29 @@ _xml_end_tag_find(struct ovm_strval *sv, unsigned n, char *s)
   }
 }
 
+PRIVATE static const struct ovm_class _ovm_cl_tbl[];
+#define CL(x)  (&_ovm_cl_tbl[x])
+
 PRIVATE inline ovm_class_t
 _ovm_inst_of(ovm_inst_t inst)
 {
-  return (inst == 0 ? ovm_cl_object : inst->inst_of);
+  return (inst == 0 ? CL(OVM_CL_OBJECT) : inst->inst_of);
+}
+
+PRIVATE unsigned
+_ovm_is_subclass_of(ovm_class_t cl1, ovm_class_t cl2)
+{
+  for ( ; cl1; cl1 = cl1->parent) {
+    if (cl1 == cl2)  return (1);
+  }
+
+  return (0);
 }
 
 PRIVATE unsigned
 _ovm_is_kind_of(ovm_inst_t inst, ovm_class_t cl)
 {
-  return (ovm_is_subclass_of(_ovm_inst_of(inst), cl));
+  return (_ovm_is_subclass_of(_ovm_inst_of(inst), cl));
 }
 
 PRIVATE void *
@@ -614,14 +627,6 @@ _ovm_object_free(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl)
   }
 }
 
-PUBLIC const struct ovm_class ovm_cl_object[1] = {
-  { .name = "Object",
-    .init = _ovm_object_init,
-    .walk = _ovm_object_walk,
-    .free = _ovm_object_free
-  }
-};
-
 /***************************************************************************/
 
 PRIVATE void _ovm_integer_newc(ovm_t ovm, ovm_inst_t *dst, ovm_intval_t val);
@@ -629,7 +634,7 @@ PRIVATE void _ovm_integer_newc(ovm_t ovm, ovm_inst_t *dst, ovm_intval_t val);
 PRIVATE void
 _ovm_boolean_newc(ovm_t ovm, ovm_inst_t *dst, ovm_boolval_t val)
 {
-  _ovm_inst_alloc(ovm, ovm_cl_boolean, dst);
+  _ovm_inst_alloc(ovm, CL(OVM_CL_BOOLEAN), dst);
   BOOLVAL(*dst) = (val != 0);
 }
 
@@ -673,9 +678,9 @@ _ovm_boolean_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm
     arg    = argv[0];
     arg_cl = _ovm_inst_of(arg);
 
-    if (arg_cl == ovm_cl_integer) {
+    if (arg_cl == CL(OVM_CL_INTEGER)) {
       BOOLVAL(inst) = (INTVAL(arg) != 0);
-    } else if (arg_cl == ovm_cl_xml) {
+    } else if (arg_cl == CL(OVM_CL_XML)) {
       struct ovm_strval pb[1];
       
       sv_init(pb, STRVAL(arg)->size - 1, STRVAL(arg)->data);
@@ -700,9 +705,9 @@ _ovm_boolean_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm
 PRIVATE void
 _ovm_boolean_equal(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
-  OVM_ASSERT(_ovm_is_kind_of(argv[0], ovm_cl_boolean));
+  OVM_ASSERT(_ovm_is_kind_of(argv[0], CL(OVM_CL_BOOLEAN)));
   OVM_ASSERT(argc == 1);
-  OVM_ASSERT(_ovm_is_kind_of(argv[1], ovm_cl_boolean));
+  OVM_ASSERT(_ovm_is_kind_of(argv[1], CL(OVM_CL_BOOLEAN)));
 
   if (dst == 0)  return;
 
@@ -712,7 +717,7 @@ _ovm_boolean_equal(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 PRIVATE void
 _ovm_boolean_hash(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
-  OVM_ASSERT(_ovm_is_kind_of(argv[0], ovm_cl_boolean));
+  OVM_ASSERT(_ovm_is_kind_of(argv[0], CL(OVM_CL_BOOLEAN)));
   OVM_ASSERT(argc == 0);
 
   if (dst == 0)  return;
@@ -720,37 +725,12 @@ _ovm_boolean_hash(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   _ovm_integer_newc(ovm, dst, BOOLVAL(argv[0]) != 0);
 }
 
-PUBLIC const struct ovm_class ovm_cl_boolean[1] = {
-  { .name   = "Boolean",
-    .parent = ovm_cl_object,
-    .new    = _ovm_inst_new1,
-    .init   = _ovm_boolean_init,
-    .walk   = _ovm_walk_parent,
-    .free   = _ovm_free_parent,
-    .inst_method_tbl = {
-      [OVM_METHOD_CALL_SEL_EQUAL] = _ovm_boolean_equal,
-      [OVM_METHOD_CALL_SEL_HASH]  = _ovm_boolean_hash
-    }
-  }
-};
-
-/***************************************************************************/
-
-PUBLIC const struct ovm_class ovm_cl_number[1] = {
-  { .name   = "Number",
-    .parent = ovm_cl_object,
-    .init   = _ovm_init_parent,
-    .walk   = _ovm_walk_parent,
-    .free   = _ovm_free_parent,
-  }
-};
-
 /***************************************************************************/
 
 PRIVATE void
 _ovm_integer_newc(ovm_t ovm, ovm_inst_t *dst, ovm_intval_t val)
 {
-  _ovm_inst_alloc(ovm, ovm_cl_integer, dst);
+  _ovm_inst_alloc(ovm, CL(OVM_CL_INTEGER), dst);
   INTVAL(*dst) = val;
 }
 
@@ -803,11 +783,11 @@ _ovm_integer_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm
     ovm_inst_t  arg    = argv[0];
     ovm_class_t arg_cl = _ovm_inst_of(arg);
 
-    if (arg_cl == ovm_cl_boolean) {
+    if (arg_cl == CL(OVM_CL_BOOLEAN)) {
       INTVAL(inst) = (BOOLVAL(arg) != 0);
-    } else if (arg_cl == ovm_cl_float) {
+    } else if (arg_cl == CL(OVM_CL_FLOAT)) {
       INTVAL(inst) = (ovm_intval_t) FLOATVAL(arg);
-    } else if (arg_cl == ovm_cl_xml) {
+    } else if (arg_cl == CL(OVM_CL_XML)) {
       struct ovm_strval pb[1];
       
       sv_init(pb, STRVAL(arg)->size - 1, STRVAL(arg)->data);
@@ -836,7 +816,7 @@ _ovm_integer_add(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   ovm_class_t  arg_cl;
   ovm_intval_t val;
 
-  OVM_ASSERT(_ovm_inst_of(argv[0]) == ovm_cl_integer);
+  OVM_ASSERT(_ovm_inst_of(argv[0]) == CL(OVM_CL_INTEGER));
   OVM_ASSERT(argc == 1);
   arg    = argv[1];
   arg_cl = _ovm_inst_of(arg);
@@ -845,9 +825,9 @@ _ovm_integer_add(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   if (dst == 0)  return;
 
   val = INTVAL(argv[0]);
-  if (arg_cl == ovm_cl_integer) {
+  if (arg_cl == CL(OVM_CL_INTEGER)) {
     val += INTVAL(arg);
-  } else if (arg_cl == ovm_cl_float) {
+  } else if (arg_cl == CL(OVM_CL_FLOAT)) {
     val += (ovm_intval_t) FLOATVAL(arg);
   } else  OVM_ASSERT(0);
 
@@ -857,9 +837,9 @@ _ovm_integer_add(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 PRIVATE void
 _ovm_integer_equal(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
-  OVM_ASSERT(_ovm_is_kind_of(argv[0], ovm_cl_integer));
+  OVM_ASSERT(_ovm_is_kind_of(argv[0], CL(OVM_CL_INTEGER)));
   OVM_ASSERT(argc == 1);
-  OVM_ASSERT(_ovm_is_kind_of(argv[1], ovm_cl_integer));
+  OVM_ASSERT(_ovm_is_kind_of(argv[1], CL(OVM_CL_INTEGER)));
 
   if (dst == 0)  return;
 
@@ -871,7 +851,7 @@ _ovm_integer_hash(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   unsigned h[1];
 
-  OVM_ASSERT(_ovm_is_kind_of(argv[0], ovm_cl_integer));
+  OVM_ASSERT(_ovm_is_kind_of(argv[0], CL(OVM_CL_INTEGER)));
   OVM_ASSERT(argc == 0);
 
   if (dst == 0)  return;
@@ -881,21 +861,6 @@ _ovm_integer_hash(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   
   _ovm_integer_newc(ovm, dst, crc32_get(h));
 }
-
-PUBLIC const struct ovm_class ovm_cl_integer[1] = {
-  { .name   = "Integer",
-    .parent = ovm_cl_number,
-    .new    = _ovm_inst_new1,
-    .init   = _ovm_integer_init,
-    .walk   = _ovm_walk_parent,
-    .free   = _ovm_free_parent,
-    .inst_method_tbl = {
-      [OVM_METHOD_CALL_SEL_ADD]   = _ovm_integer_add,
-      [OVM_METHOD_CALL_SEL_EQUAL] = _ovm_integer_equal,
-      [OVM_METHOD_CALL_SEL_HASH]  = _ovm_integer_hash
-    }
-  }
-};
 
 /***************************************************************************/
 
@@ -963,7 +928,7 @@ _ovm_strval_inita(ovm_t ovm, ovm_inst_t inst, unsigned argc, ovm_inst_t *argv)
 PRIVATE void
 _ovm_string_newc(ovm_t ovm, ovm_inst_t *dst, char *s)
 {
-  _ovm_inst_alloc(ovm, ovm_cl_string, dst);
+  _ovm_inst_alloc(ovm, CL(OVM_CL_STRING), dst);
   _ovm_strval_initc(ovm, *dst, 1, strlen(s) + 1, s);
 }
 
@@ -978,23 +943,23 @@ _ovm_string_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_
 
     if (arg == 0) {
       _ovm_strval_initc(ovm, inst, 1, 5, "#nil");
-    } else if (arg_cl == ovm_cl_boolean) {
+    } else if (arg_cl == CL(OVM_CL_BOOLEAN)) {
       if (BOOLVAL(arg)) {
 	_ovm_strval_initc(ovm, inst, 1, 6, "#true");
       } else {
 	_ovm_strval_initc(ovm, inst, 1, 7, "#false");      
       }
-    } else if (arg_cl == ovm_cl_integer) {
+    } else if (arg_cl == CL(OVM_CL_INTEGER)) {
       char buf[32];
 
       snprintf(buf, sizeof(buf), "%lld", INTVAL(arg));
       _ovm_strval_initc(ovm, inst, 1, strlen(buf) + 1, buf);
-    } else if (arg_cl == ovm_cl_float) {
+    } else if (arg_cl == CL(OVM_CL_FLOAT)) {
       char buf[64];
 
       snprintf(buf, sizeof(buf), "%Lg", FLOATVAL(arg));
       _ovm_strval_initc(ovm, inst, 1, strlen(buf) + 1, buf);
-    } else if (arg_cl == ovm_cl_xml) {
+    } else if (arg_cl == CL(OVM_CL_XML)) {
       _ovm_strval_initc(ovm, inst, 1, STRVAL(arg)->size, STRVAL(arg)->data);
     } else if (arg_cl == ovm_cl_bitmap) {
       unsigned nn = 2 + BMVAL(arg)->size + (BMVAL(arg)->size == 0 ? 0 : (BMVAL(arg)->size - 1) / 4) + 1;
@@ -1022,9 +987,9 @@ _ovm_string_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_
       wp = _ovm_falloc(ovm, 5, &old);
 
       _ovm_string_newc(ovm, &wp[0], "<");
-      __ovm_new(ovm, &wp[1], ovm_cl_string, 1, CAR(arg));
+      __ovm_new(ovm, &wp[1], CL(OVM_CL_STRING), 1, CAR(arg));
       _ovm_string_newc(ovm, &wp[2], ", ");
-      __ovm_new(ovm, &wp[3], ovm_cl_string, 1, CDR(arg));
+      __ovm_new(ovm, &wp[3], CL(OVM_CL_STRING), 1, CDR(arg));
       _ovm_string_newc(ovm, &wp[4], ">");
 
       _ovm_strval_inita(ovm, inst, 5, wp);
@@ -1047,7 +1012,7 @@ _ovm_string_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_
 	  ++q;
 	}
 
-	__ovm_new(ovm, q, ovm_cl_string, 1, CAR(p));
+	__ovm_new(ovm, q, CL(OVM_CL_STRING), 1, CAR(p));
 	++q;
       }
       _ovm_string_newc(ovm, q, ")");
@@ -1072,7 +1037,7 @@ _ovm_string_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_
 	  ++q;
 	}
 
-	__ovm_new(ovm, q, ovm_cl_string, 1, *p);
+	__ovm_new(ovm, q, CL(OVM_CL_STRING), 1, *p);
 	++q;
       }
       _ovm_string_newc(ovm, q, "]");
@@ -1098,7 +1063,7 @@ _ovm_string_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_
 	    ++q;
 	  }
 	  
-	  __ovm_new(ovm, q, ovm_cl_string, 1, CAR(r));
+	  __ovm_new(ovm, q, CL(OVM_CL_STRING), 1, CAR(r));
 	  ++q;
 	}
       }
@@ -1127,11 +1092,11 @@ _ovm_string_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_
 	  }
 	  
 	  s = CAR(r);
-	  __ovm_new(ovm, q, ovm_cl_string, 1, CAR(s));
+	  __ovm_new(ovm, q, CL(OVM_CL_STRING), 1, CAR(s));
 	  ++q;
 	  _ovm_assign(ovm, q, wp[0]);
 	  ++q;
-	  __ovm_new(ovm, q, ovm_cl_string, 1, CDR(s));
+	  __ovm_new(ovm, q, CL(OVM_CL_STRING), 1, CDR(s));
 	  ++q;
 	}
       }
@@ -1161,9 +1126,9 @@ _ovm_string_free(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl)
 PRIVATE void
 _ovm_string_equal(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
-  OVM_ASSERT(_ovm_is_kind_of(argv[0], ovm_cl_string));
+  OVM_ASSERT(_ovm_is_kind_of(argv[0], CL(OVM_CL_STRING)));
   OVM_ASSERT(argc == 1);
-  OVM_ASSERT(_ovm_is_kind_of(argv[1], ovm_cl_string));
+  OVM_ASSERT(_ovm_is_kind_of(argv[1], CL(OVM_CL_STRING)));
 
   if (dst == 0)  return;
 
@@ -1178,7 +1143,7 @@ _ovm_string_hash(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   unsigned h[1];
 
-  OVM_ASSERT(_ovm_is_kind_of(argv[0], ovm_cl_string));
+  OVM_ASSERT(_ovm_is_kind_of(argv[0], CL(OVM_CL_STRING)));
   OVM_ASSERT(argc == 0);
 
   if (dst == 0)  return;
@@ -1189,26 +1154,12 @@ _ovm_string_hash(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   _ovm_integer_newc(ovm, dst, crc32_get(h));
 }
 
-PUBLIC const struct ovm_class ovm_cl_string[1] = {
-  { .name   = "String",
-    .parent = ovm_cl_object,
-    .new    = _ovm_inst_new1,
-    .init   = _ovm_string_init,
-    .walk   = _ovm_walk_parent,
-    .free   = _ovm_string_free,
-    .inst_method_tbl = {
-      [OVM_METHOD_CALL_SEL_EQUAL] = _ovm_string_equal,
-      [OVM_METHOD_CALL_SEL_HASH]  = _ovm_string_hash
-    }
-  }
-};
-
 /***************************************************************************/
 
 PRIVATE void
 _ovm_xml_newc(ovm_t ovm, ovm_inst_t *dst, char *s)
 {
-  _ovm_inst_alloc(ovm, ovm_cl_xml, dst);
+  _ovm_inst_alloc(ovm, CL(OVM_CL_XML), dst);
   _ovm_strval_initc(ovm, *dst, 1, strlen(s) + 1, s);
 }
 
@@ -1225,22 +1176,22 @@ _ovm_xml_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_ins
 
   if (arg == 0) {
     _ovm_strval_initc(ovm, inst, 1, 7, "<nil/>");
-  } else if (arg_cl == ovm_cl_boolean) {
+  } else if (arg_cl == CL(OVM_CL_BOOLEAN)) {
     char buf[21];
 
     snprintf(buf, sizeof(buf), "<Boolean>%c</Boolean>", BOOLVAL(arg) ? '1' : '0');
     _ovm_strval_initc(ovm, inst, 1, sizeof(buf), buf);
-  } else if (arg_cl == ovm_cl_integer) {
+  } else if (arg_cl == CL(OVM_CL_INTEGER)) {
     char buf[64];
 
     snprintf(buf, sizeof(buf), "<Integer>%lld</Integer>", INTVAL(arg));
     _ovm_strval_initc(ovm, inst, 1, strlen(buf) + 1, buf);
-  } else if (arg_cl == ovm_cl_float) {
+  } else if (arg_cl == CL(OVM_CL_FLOAT)) {
     char buf[96];
 
     snprintf(buf, sizeof(buf), "<Float>%Lg</Float>", FLOATVAL(arg));
     _ovm_strval_initc(ovm, inst, 1, strlen(buf) + 1, buf);
-  } else if (arg_cl == ovm_cl_string) {
+  } else if (arg_cl == CL(OVM_CL_STRING)) {
     unsigned nn, k;
     const char *p;
 
@@ -1322,8 +1273,8 @@ _ovm_xml_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_ins
     wp = _ovm_falloc(ovm, 4, &old);
 
     _ovm_string_newc(ovm, &wp[0], "<Pair>");
-    __ovm_new(ovm, &wp[1], ovm_cl_xml, 1, CAR(arg));
-    __ovm_new(ovm, &wp[2], ovm_cl_xml, 1, CDR(arg));
+    __ovm_new(ovm, &wp[1], CL(OVM_CL_XML), 1, CAR(arg));
+    __ovm_new(ovm, &wp[2], CL(OVM_CL_XML), 1, CDR(arg));
     _ovm_string_newc(ovm, &wp[3], "</Pair>");
 
     _ovm_strval_inita(ovm, inst, 4, wp);
@@ -1341,7 +1292,7 @@ _ovm_xml_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_ins
     _ovm_string_newc(ovm, &wp[0], "<List>");
 
     for (q = &wp[1], p = arg; p; p = CDR(p)) {
-      __ovm_new(ovm, q, ovm_cl_xml, 1, CAR(p));
+      __ovm_new(ovm, q, CL(OVM_CL_XML), 1, CAR(p));
       ++q;
     }
     _ovm_string_newc(ovm, q, "</List>");
@@ -1361,7 +1312,7 @@ _ovm_xml_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_ins
     _ovm_string_newc(ovm, &wp[0], "<Array>");
 
     for (q = &wp[1], p = ARRAYVAL(arg)->data; n; --n, ++p) {
-      __ovm_new(ovm, q, ovm_cl_xml, 1, *p);
+      __ovm_new(ovm, q, CL(OVM_CL_XML), 1, *p);
       ++q;
     }
     _ovm_string_newc(ovm, q, "</Array>");
@@ -1382,7 +1333,7 @@ _ovm_xml_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_ins
 
     for (q = &wp[1], p = SETVAL(arg)->base->data, n = SETVAL(arg)->base->size; n; --n, ++p) {
       for (r = *p; r; r = CDR(r)) {
-	__ovm_new(ovm, q, ovm_cl_xml, 1, CAR(r));
+	__ovm_new(ovm, q, CL(OVM_CL_XML), 1, CAR(r));
 	++q;
       }
     }
@@ -1404,7 +1355,7 @@ _ovm_xml_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_ins
 
     for (q = &wp[1], p = SETVAL(arg)->base->data, n = SETVAL(arg)->base->size; n; --n, ++p) {
       for (r = *p; r; r = CDR(r)) {
-	__ovm_new(ovm, q, ovm_cl_xml, 1, CAR(r));
+	__ovm_new(ovm, q, CL(OVM_CL_XML), 1, CAR(r));
 	++q;
       }
     }
@@ -1454,11 +1405,11 @@ _xml_parse(ovm_t ovm, struct ovm_strval *pb, ovm_inst_t *dst)
   }
 
   if (sv_strcmp(pb, 9, "<Boolean>")) {
-    return (__xml_parse(ovm, pb, dst, ovm_cl_boolean, _xml_parse_bool2));
+    return (__xml_parse(ovm, pb, dst, CL(OVM_CL_BOOLEAN), _xml_parse_bool2));
   }
 
   if (sv_strcmp(pb, 9, "<Integer>")) {
-    return (__xml_parse(ovm, pb, dst, ovm_cl_integer, _xml_parse_int2));
+    return (__xml_parse(ovm, pb, dst, CL(OVM_CL_INTEGER), _xml_parse_int2));
   }
 
   if (sv_strcmp(pb, 6, "<List>")) {
@@ -1473,7 +1424,7 @@ _ovm_xml_parse(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 {
   struct ovm_strval pb[1];
 
-  OVM_ASSERT(_ovm_is_kind_of(argv[0], ovm_cl_xml));
+  OVM_ASSERT(_ovm_is_kind_of(argv[0], CL(OVM_CL_XML)));
   OVM_ASSERT(argc == 0);
 
   if (dst == 0)  return;
@@ -1490,19 +1441,6 @@ _ovm_xml_parse(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
  err:
   __ovm_except_raise(ovm, OVM_EXCEPT_CODE_BAD_VALUE, argv[0], __FILE__, __LINE__);
 }
-
-PUBLIC const struct ovm_class ovm_cl_xml[1] = {
-  { .name   = "Xml",
-    .parent = ovm_cl_string,
-    .new    = _ovm_inst_new1,
-    .init   = _ovm_xml_init,
-    .walk   = _ovm_walk_parent,
-    .free   = _ovm_free_parent,
-    .inst_method_tbl = {
-      [OVM_METHOD_CALL_SEL_PARSE] = _ovm_xml_parse
-    }
-  }
-};
 
 /***************************************************************************/
 
@@ -1582,7 +1520,7 @@ _ovm_bmap_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_in
     ovm_inst_t  arg = argv[0];
     ovm_class_t arg_cl = _ovm_inst_of(arg);
 
-    if (arg_cl == ovm_cl_integer) {
+    if (arg_cl == CL(OVM_CL_INTEGER)) {
       OVM_ASSERT(INTVAL(arg) >= 0);
 
       _ovm_bmval_alloc(ovm, inst, INTVAL(arg));
@@ -1632,23 +1570,7 @@ _ovm_bmap_hash(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   _ovm_integer_newc(ovm, dst, crc32_get(h));
 }
 
-PUBLIC const struct ovm_class ovm_cl_bitmap[1] = {
-  { .name   = "Bitmap",
-    .parent = ovm_cl_object,
-    .new    = _ovm_inst_new1,
-    .init   = _ovm_bmap_init,
-    .walk   = _ovm_walk_parent,
-    .free   = _ovm_bmap_free,
-    .inst_method_tbl = {
-      [OVM_METHOD_CALL_SEL_EQUAL] = _ovm_bmap_equal,
-      [OVM_METHOD_CALL_SEL_HASH]  = _ovm_bmap_hash
-    }
-  }
-};
-
 /***************************************************************************/
-
-PRIVATE const struct ovm_class ovm_cl_dptr[1];
 
 PRIVATE void
 _ovm_dptr_newc(ovm_t ovm, ovm_inst_t *dst, ovm_class_t cl, ovm_inst_t car, ovm_inst_t cdr)
@@ -1751,35 +1673,6 @@ _ovm_dptr_hash(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   _ovm_integer_newc(ovm, dst, h);
 }
 
-PRIVATE const struct ovm_class ovm_cl_dptr[1] = {
-  { .name   = "Dptr",
-    .parent = ovm_cl_object,
-    .init   = _ovm_dptr_init,
-    .walk   = _ovm_dptr_walk,
-    .free   = _ovm_free_parent,
-    .inst_method_tbl = {
-      [OVM_METHOD_CALL_SEL_CAR]   = _ovm_dptr_car,
-      [OVM_METHOD_CALL_SEL_CDR]   = _ovm_dptr_cdr,
-      [OVM_METHOD_CALL_SEL_EQUAL] = _ovm_dptr_equal,
-      [OVM_METHOD_CALL_SEL_HASH]  = _ovm_dptr_hash
-    }
-  }
-};
-
-/***************************************************************************/
-
-PUBLIC const struct ovm_class ovm_cl_pair[1] = {
-  { .name   = "Pair",
-    .parent = ovm_cl_dptr,
-    .new    = _ovm_inst_new1,
-    .init   = _ovm_init_parent,
-    .walk   = _ovm_walk_parent,
-    .free   = _ovm_free_parent,
-    .inst_method_tbl = {
-    }
-  }
-};
-
 /***************************************************************************/
 
 PRIVATE unsigned
@@ -1845,7 +1738,7 @@ _ovm_list_new(ovm_t ovm, ovm_inst_t *dst, ovm_class_t cl, unsigned argc, ovm_ins
       
       return;
     }
-    if (arg_cl == ovm_cl_xml) {
+    if (arg_cl == CL(OVM_CL_XML)) {
       struct ovm_strval pb[1];
 
       sv_init(pb, STRVAL(arg)->size - 1, STRVAL(arg)->data);
@@ -1922,19 +1815,6 @@ _ovm_list_hash(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 
   _ovm_integer_newc(ovm, dst, h);
 }
-
-PUBLIC const struct ovm_class ovm_cl_list[1] = {
-  { .name   = "List",
-    .parent = ovm_cl_dptr,
-    .new    = _ovm_list_new,
-    .walk   = _ovm_walk_parent,
-    .free   = _ovm_free_parent,
-    .inst_method_tbl = {
-      [OVM_METHOD_CALL_SEL_EQUAL] = _ovm_list_equal,
-      [OVM_METHOD_CALL_SEL_HASH]  = _ovm_list_hash
-    }
-  }
-};
 
 /***************************************************************************/
 
@@ -2018,11 +1898,11 @@ _ovm_array_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_i
     ovm_inst_t  arg = argv[0];
     ovm_class_t arg_cl = _ovm_inst_of(arg);
 
-    if (arg_cl == ovm_cl_integer) {
+    if (arg_cl == CL(OVM_CL_INTEGER)) {
       OVM_ASSERT(INTVAL(arg) >= 0);
 
       _ovm_arrayval_init(ovm, inst, INTVAL(arg));
-    } else if (arg_cl == ovm_cl_xml) {
+    } else if (arg_cl == CL(OVM_CL_XML)) {
       struct ovm_strval pb[1];
 
       sv_init(pb, STRVAL(arg)->size - 1, STRVAL(arg)->data);
@@ -2099,7 +1979,7 @@ _ovm_array_at(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 
   OVM_ASSERT(_ovm_is_kind_of(argv[0], ovm_cl_array));
   OVM_ASSERT(argc == 1);
-  OVM_ASSERT(_ovm_is_kind_of(argv[1], ovm_cl_integer));
+  OVM_ASSERT(_ovm_is_kind_of(argv[1], CL(OVM_CL_INTEGER)));
 
   ofs = INTVAL(argv[1]);
   len = 1;
@@ -2117,7 +1997,7 @@ _ovm_array_at_put(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 
   OVM_ASSERT(_ovm_is_kind_of(argv[0], ovm_cl_array));
   OVM_ASSERT(argc == 2);
-  OVM_ASSERT(_ovm_is_kind_of(argv[1], ovm_cl_integer));
+  OVM_ASSERT(_ovm_is_kind_of(argv[1], CL(OVM_CL_INTEGER)));
 
   ofs = INTVAL(argv[1]);
   len = 1;
@@ -2127,20 +2007,6 @@ _ovm_array_at_put(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 
   OVM_CASSIGN(ovm, dst, argv[2]);
 }
-
-PUBLIC const struct ovm_class ovm_cl_array[1] = {
-  { .name   = "Array",
-    .parent = ovm_cl_object,
-    .new    = _ovm_inst_new2,
-    .init   = _ovm_array_init,
-    .walk   = _ovm_array_walk,
-    .free   = _ovm_array_free,
-    .inst_method_tbl = {
-      [OVM_METHOD_CALL_SEL_AT]     = _ovm_array_at,
-      [OVM_METHOD_CALL_SEL_AT_PUT] = _ovm_array_at_put
-    }
-  }
-};
 
 /***************************************************************************/
 
@@ -2223,7 +2089,7 @@ _ovm_set_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_ins
     ovm_inst_t  arg = argv[0];
     ovm_class_t arg_cl = _ovm_inst_of(arg);
 
-    if (arg_cl == ovm_cl_integer) {
+    if (arg_cl == CL(OVM_CL_INTEGER)) {
       ovm_intval_t size = INTVAL(arg);
 
       OVM_ASSERT(size > 0);
@@ -2303,21 +2169,6 @@ _ovm_set_put(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
 
   OVM_CASSIGN(ovm, dst, argv[1]);
 }
-
-PUBLIC const struct ovm_class ovm_cl_set[1] = {
-  { .name   = "Set",
-    .parent = ovm_cl_array,
-    .new    = _ovm_inst_new2,
-    .init   = _ovm_set_init,
-    .walk   = _ovm_walk_parent,
-    .free   = _ovm_free_parent,
-    .inst_method_tbl = {
-      [OVM_METHOD_CALL_SEL_AT]  = _ovm_set_at,
-      [OVM_METHOD_CALL_SEL_DEL] = _ovm_set_del,
-      [OVM_METHOD_CALL_SEL_PUT] = _ovm_set_put
-    }
-  }
-};
 
 /***************************************************************************/
 
@@ -2413,7 +2264,7 @@ _ovm_dict_init(ovm_t ovm, ovm_inst_t inst, ovm_class_t cl, unsigned argc, ovm_in
     ovm_inst_t  arg = argv[0];
     ovm_class_t arg_cl = _ovm_inst_of(arg);
 
-    if (arg_cl == ovm_cl_integer) {
+    if (arg_cl == CL(OVM_CL_INTEGER)) {
       ovm_intval_t size = INTVAL(arg);
 
       OVM_ASSERT(size > 0);
@@ -2501,21 +2352,6 @@ _ovm_dict_del(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv)
   OVM_CASSIGN(ovm, dst, argv[1]);
 }
 
-PUBLIC const struct ovm_class ovm_cl_dictionary[1] = {
-  { .name   = "Dictionary",
-    .parent = ovm_cl_set,
-    .new    = _ovm_inst_new2,
-    .init   = _ovm_dict_init,
-    .walk   = _ovm_walk_parent,
-    .free   = _ovm_free_parent,
-    .inst_method_tbl = {
-      [OVM_METHOD_CALL_SEL_AT]     = _ovm_dict_at,
-      [OVM_METHOD_CALL_SEL_AT_PUT] = _ovm_dict_at_put,
-      [OVM_METHOD_CALL_SEL_DEL]    = _ovm_dict_del
-    }
-  }
-};
-
 /***************************************************************************/
 
 PUBLIC unsigned
@@ -2534,7 +2370,7 @@ ovm_is_true(ovm_t ovm, unsigned src)
   REG_CHK(src);
 
   inst = ovm->regs[src];
-  return (_ovm_inst_of(inst) == ovm_cl_boolean && BOOLVAL(inst) != 0);
+  return (_ovm_inst_of(inst) == CL(OVM_CL_BOOLEAN) && BOOLVAL(inst) != 0);
 }
 
 PUBLIC ovm_class_t
@@ -2891,11 +2727,11 @@ ovm_cval_get(ovm_t ovm, ovm_cval_t cval, unsigned src)
   inst = ovm->regs[src];
   cl = _ovm_inst_of(inst);
 
-  if (cl == ovm_cl_boolean) {
+  if (cl == CL(OVM_CL_BOOLEAN)) {
     cval->boolval = BOOLVAL(inst);
-  } else if (cl == ovm_cl_integer) {
+  } else if (cl == CL(OVM_CL_INTEGER)) {
     cval->intval = INTVAL(inst);
-  } else if (cl == ovm_cl_string) {
+  } else if (cl == CL(OVM_CL_STRING)) {
     *cval->strval = *STRVAL(inst);
   } else {
     OVM_ASSERT(0);
@@ -2994,6 +2830,150 @@ ovm_init(ovm_t ovm, unsigned inst_page_size, void *glob, unsigned glob_size, voi
   ovm->sp = ovm->stack_end;
 }
 
+PRIVATE static const struct ovm_class _ovm_cl_tbl[] = {
+  { .name = "Object",
+    .init = _ovm_object_init,
+    .walk = _ovm_object_walk,
+    .free = _ovm_object_free
+  },
+  { .name   = "Boolean",
+    .parent = CL(OVM_CL_OBJECT),
+    .new    = _ovm_inst_new1,
+    .init   = _ovm_boolean_init,
+    .walk   = _ovm_walk_parent,
+    .free   = _ovm_free_parent,
+    .inst_method_tbl = {
+      [OVM_METHOD_CALL_SEL_EQUAL] = _ovm_boolean_equal,
+      [OVM_METHOD_CALL_SEL_HASH]  = _ovm_boolean_hash
+    }
+  },
+  { .name   = "Number",
+    .parent = CL(OVM_CL_OBJECT),
+    .init   = _ovm_init_parent,
+    .walk   = _ovm_walk_parent,
+    .free   = _ovm_free_parent,
+  },
+  { .name   = "Integer",
+    .parent = CL(OVM_CL_NUMBER),
+    .new    = _ovm_inst_new1,
+    .init   = _ovm_integer_init,
+    .walk   = _ovm_walk_parent,
+    .free   = _ovm_free_parent,
+    .inst_method_tbl = {
+      [OVM_METHOD_CALL_SEL_ADD]   = _ovm_integer_add,
+      [OVM_METHOD_CALL_SEL_EQUAL] = _ovm_integer_equal,
+      [OVM_METHOD_CALL_SEL_HASH]  = _ovm_integer_hash
+    }
+  }
+  { .name   = "Float",
+    .parent = CL(OVM_CL_NUMBER),
+    .new    = _ovm_inst_new1,
+    .walk   = _ovm_walk_parent,
+    .free   = _ovm_free_parent,
+    .inst_method_tbl = {
+    }
+  }
+  { .name   = "String",
+    .parent = CL(OVM_CL_OBJECT),
+    .new    = _ovm_inst_new1,
+    .init   = _ovm_string_init,
+    .walk   = _ovm_walk_parent,
+    .free   = _ovm_string_free,
+    .inst_method_tbl = {
+      [OVM_METHOD_CALL_SEL_EQUAL] = _ovm_string_equal,
+      [OVM_METHOD_CALL_SEL_HASH]  = _ovm_string_hash
+    }
+  },
+  { .name   = "Xml",
+    .parent = CL(OVM_CL_STRING),
+    .new    = _ovm_inst_new1,
+    .init   = _ovm_xml_init,
+    .walk   = _ovm_walk_parent,
+    .free   = _ovm_free_parent,
+    .inst_method_tbl = {
+      [OVM_METHOD_CALL_SEL_PARSE] = _ovm_xml_parse
+    }
+  },
+  { .name   = "Bitmap",
+    .parent = CL(OVM_CL_OBJECT),
+    .new    = _ovm_inst_new1,
+    .init   = _ovm_bmap_init,
+    .walk   = _ovm_walk_parent,
+    .free   = _ovm_bmap_free,
+    .inst_method_tbl = {
+      [OVM_METHOD_CALL_SEL_EQUAL] = _ovm_bmap_equal,
+      [OVM_METHOD_CALL_SEL_HASH]  = _ovm_bmap_hash
+    }
+  },
+  { .name   = "Dptr",
+    .parent = CL(OVM_CL_OBJECT),
+    .init   = _ovm_dptr_init,
+    .walk   = _ovm_dptr_walk,
+    .free   = _ovm_free_parent,
+    .inst_method_tbl = {
+      [OVM_METHOD_CALL_SEL_CAR]   = _ovm_dptr_car,
+      [OVM_METHOD_CALL_SEL_CDR]   = _ovm_dptr_cdr,
+      [OVM_METHOD_CALL_SEL_EQUAL] = _ovm_dptr_equal,
+      [OVM_METHOD_CALL_SEL_HASH]  = _ovm_dptr_hash
+    }
+  },
+  { .name   = "Pair",
+    .parent = CL(OVM_CL_DPTR),
+    .new    = _ovm_inst_new1,
+    .init   = _ovm_init_parent,
+    .walk   = _ovm_walk_parent,
+    .free   = _ovm_free_parent,
+    .inst_method_tbl = {
+    }
+  },
+  { .name   = "List",
+    .parent = CL(OVM_CL_DPTR),
+    .new    = _ovm_list_new,
+    .walk   = _ovm_walk_parent,
+    .free   = _ovm_free_parent,
+    .inst_method_tbl = {
+      [OVM_METHOD_CALL_SEL_EQUAL] = _ovm_list_equal,
+      [OVM_METHOD_CALL_SEL_HASH]  = _ovm_list_hash
+    }
+  },
+  { .name   = "Array",
+    .parent = CL(OVM_CL_OBJECT),
+    .new    = _ovm_inst_new2,
+    .init   = _ovm_array_init,
+    .walk   = _ovm_array_walk,
+    .free   = _ovm_array_free,
+    .inst_method_tbl = {
+      [OVM_METHOD_CALL_SEL_AT]     = _ovm_array_at,
+      [OVM_METHOD_CALL_SEL_AT_PUT] = _ovm_array_at_put
+    }
+  },
+  { .name   = "Set",
+    .parent = CL(OVM_CL_ARRAY),
+    .new    = _ovm_inst_new2,
+    .init   = _ovm_set_init,
+    .walk   = _ovm_walk_parent,
+    .free   = _ovm_free_parent,
+    .inst_method_tbl = {
+      [OVM_METHOD_CALL_SEL_AT]  = _ovm_set_at,
+      [OVM_METHOD_CALL_SEL_DEL] = _ovm_set_del,
+      [OVM_METHOD_CALL_SEL_PUT] = _ovm_set_put
+    }
+  },
+  { .name   = "Dictionary",
+    .parent = CL(OVM_CL_SET),
+    .new    = _ovm_inst_new2,
+    .init   = _ovm_dict_init,
+    .walk   = _ovm_walk_parent,
+    .free   = _ovm_free_parent,
+    .inst_method_tbl = {
+      [OVM_METHOD_CALL_SEL_AT]     = _ovm_dict_at,
+      [OVM_METHOD_CALL_SEL_AT_PUT] = _ovm_dict_at_put,
+      [OVM_METHOD_CALL_SEL_DEL]    = _ovm_dict_del
+    }
+  }
+};
+
+
 #ifndef NDEBUG
 
 PUBLIC void
@@ -3014,3 +2994,4 @@ ovm_stats_print(ovm_t ovm)
 }
 
 #endif
+

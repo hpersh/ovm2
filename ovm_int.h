@@ -4,31 +4,13 @@ struct list {
   struct list *prev, *next;
 };
 
+struct ovm_class;
 struct ovm_inst_page;
 struct ovm_inst;
 
+typedef const struct ovm_class *ovm_class_t;
 typedef struct ovm_inst  *ovm_inst_t;
 typedef void (*ovm_method_call_t)(ovm_t ovm, ovm_inst_t *dst, unsigned argc, ovm_inst_t *argv);
-
-enum {
-  OVM_R0 = 0,
-  OVM_R1,
-  OVM_R2,
-  OVM_R3,
-  OVM_R4,
-  OVM_R5,
-  OVM_R6,
-  OVM_R7,
-  OVM_R8,
-  OVM_R9,
-  OVM_R10,
-  OVM_R11,
-  OVM_R12,
-  OVM_R13,
-  OVM_R14,
-  OVM_R15,
-  OVM_NUM_REGS
-};
 
 struct ovm_class {
   const char  *name;
@@ -123,6 +105,6 @@ struct ovm {
 #endif
 };
 
-void _ovm_new(ovm_t ovm, unsigned dst, ovm_class_t cl, unsigned argc, ...);
-void _ovm_method_call(ovm_t ovm, unsigned dst, unsigned recvr, ovm_class_t cl, unsigned sel, unsigned argc, ...);
+void _ovm_new(ovm_t ovm, unsigned dst, unsigned cl, unsigned argc, ...);
+void _ovm_method_call(ovm_t ovm, unsigned dst, unsigned recvr, unsigned cl, unsigned sel, unsigned argc, ...);
 

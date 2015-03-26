@@ -77,7 +77,7 @@ main(void)
   ovm_integer_newc(ovm, OVM_R1, 0);
   ovm_integer_newc(ovm, OVM_R2, 1);
 
-  for (n = 100000000; n; --n) {
+  for (n = 1000000000; n; --n) {
     OVM_METHOD_CALL(ovm, OVM_R1, OVM_R1, OVM_METHOD_CALL_SEL_ADD, OVM_R2);
   }
 
@@ -246,7 +246,7 @@ main(void)
 
 #endif
 
-#if 1
+#if 0
 
   void foo(void)
     {
@@ -275,6 +275,33 @@ main(void)
     } OVM_EXCEPT_FINALLY_END(ovm);
 
   } OVM_EXCEPT_FRAME_END(ovm);
+
+#endif
+
+#if 1
+  void add(void)
+  {
+    void *old;
+
+    old = ovm_falloc(ovm, 0);
+
+    ovm_pushm(ovm, OVM_R1, 2);
+    ovm_fload(ovm, OVM_R1, 0);
+    ovm_fload(ovm, OVM_R2, 1);
+    OVM_METHOD_CALL(ovm, OVM_R1, OVM_R1, OVM_METHOD_CALL_SEL_ADD, OVM_R2);
+    ovm_drop(ovm);
+    ovm_pop(ovm, OVM_R2);
+
+    ovm_ffree(ovm, old);
+  }
+
+  ovm_integer_newc(ovm, OVM_R1, 13);
+  ovm_integer_newc(ovm, OVM_R2, 42);
+  ovm_push(ovm, OVM_R2);
+  ovm_push(ovm, OVM_R1);
+  add();
+  ovm_dropm(ovm, 2);
+  inst_print(ovm, OVM_R1);
 
 #endif
 
