@@ -61,25 +61,7 @@ struct ovm_inst {
   } val[1];
 };
 
-struct ovm_except_frame {
-  struct ovm_except_frame *prev;
-  
-  ovm_inst_t    *sp, *fp;
-  int           code;
-  ovm_inst_t    arg;
-  const char    *file;
-  unsigned      line;
-  unsigned char caughtf;
-  jmp_buf       jmp_buf;
-};
-
-void _ovm_except_frame_begin(ovm_t ovm, struct ovm_except_frame *xfr);
-void _ovm_except_raise(ovm_t ovm, int code, unsigned src, char *file, unsigned line);
-void _ovm_except_reraise(ovm_t ovm);
-void _ovm_expcet_frame_end(ovm_t ovm);
-
-#define OVM_CPP_CONCAT(x, y)  x ## y
-#define OVM_EXCEPT_FRAME_VAR(x)  OVM_CPP_CONCAT(__ovm_xfr_, x)
+struct ovm_except_frame;
 
 struct ovm {
   struct list inst_page_list[1], inst_free_list[1];
@@ -105,6 +87,45 @@ struct ovm {
 #endif
 };
 
+struct ovm_except_frame {
+  struct ovm_except_frame *prev;
+  
+  ovm_inst_t    *sp, *fp;
+  int           code;
+  ovm_inst_t    arg;
+  const char    *file;
+  unsigned      line;
+  unsigned char caughtf;
+  jmp_buf       jmp_buf;
+};
+
+void _ovm_except_frame_begin(ovm_t ovm, struct ovm_except_frame *xfr);
+void _ovm_except_raise(ovm_t ovm, int code, unsigned src, char *file, unsigned line);
+void _ovm_except_reraise(ovm_t ovm);
+void _ovm_expcet_frame_end(ovm_t ovm);
+
+static inline int
+ovm_except_code(ovm_t ovm)
+{
+  return (ovm->xfp->code);
+}
+
+static inline const char *
+ovm_except_file(ovm_t ovm)
+{
+  return (ovm->xfp->file);
+}
+
+static inline unsigned
+ovm_except_line(ovm_t ovm)
+{
+  return (ovm->xfp->line);
+}
+
+#define OVM_CPP_CONCAT(x, y)  x ## y
+#define OVM_EXCEPT_FRAME_VAR(x)  OVM_CPP_CONCAT(__ovm_xfr_, x)
+
 void _ovm_new(ovm_t ovm, unsigned dst, unsigned cl, unsigned argc, ...);
-void _ovm_method_call(ovm_t ovm, unsigned dst, unsigned recvr, unsigned cl, unsigned sel, unsigned argc, ...);
+void _ovm_method_call(ovm_t ovm, unsigned dst, unsigned recvr, unsigned sel, unsigned argc, ...);
+void _ovm_method_call_cl(ovm_t ovm, unsigned dst, unsigned recvr, unsigned cl, unsigned sel, unsigned argc, ...);
 

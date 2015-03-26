@@ -40,7 +40,7 @@ inst_print(ovm_t ovm, unsigned src)
 
   ovm_push(ovm, src);
 
-  OVM_NEW(ovm, src, ovm_cl_string, src);
+  OVM_NEW(ovm, src, OVM_CL_STRING, src);
   
   ovm_cval_get(ovm, cv, src);
   printf("%s\n", cv->strval->data);
@@ -219,14 +219,14 @@ main(void)
 
 #endif
 
-#if 0
+#if 1
   
   ovm_xml_newc(ovm, OVM_R1, "  <List> <Boolean> 1  </Boolean><Integer>13</Integer></List> ");
-  OVM_NEW(ovm, OVM_R2, ovm_cl_list, OVM_R1);
+  OVM_NEW(ovm, OVM_R2, OVM_CL_LIST, OVM_R1);
   inst_print(ovm, OVM_R2);
 
   ovm_xml_newc(ovm, OVM_R1, "  <Array> <Boolean> 1  </Boolean><Integer>13</Integer></Array> ");
-  OVM_NEW(ovm, OVM_R2, ovm_cl_array, OVM_R1);
+  OVM_NEW(ovm, OVM_R2, OVM_CL_ARRAY, OVM_R1);
   inst_print(ovm, OVM_R2);
 
   ovm_array_newc(ovm, OVM_R2, 10);
@@ -237,10 +237,10 @@ main(void)
 
   inst_print(ovm, OVM_R2);
 
-  OVM_NEW(ovm, OVM_R3, ovm_cl_xml, OVM_R2);
+  OVM_NEW(ovm, OVM_R3, OVM_CL_XML, OVM_R2);
   inst_print(ovm, OVM_R3);
 
-  OVM_NEW(ovm, OVM_R4, ovm_cl_array, OVM_R3);
+  OVM_NEW(ovm, OVM_R4, OVM_CL_ARRAY, OVM_R3);
   inst_print(ovm, OVM_R4);
   
 
@@ -278,7 +278,7 @@ main(void)
 
 #endif
 
-#if 1
+#if 0
   void add(void)
   {
     void *old;

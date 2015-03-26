@@ -138,9 +138,9 @@ void ovm_gstore(ovm_t ovm, unsigned dst, unsigned src);
 #define OVM_NEW(_ovm, _dst, _cl, ...) \
   (_ovm_new((_ovm), (_dst), (_cl), sizeof((unsigned []) { 0, ## __VA_ARGS__ }) / sizeof(unsigned) - 1, ## __VA_ARGS__))
 #define OVM_METHOD_CALL(_ovm, _dst, _recvr, _sel, ...) \
-  (_ovm_method_call((_ovm), (_dst), (_recvr), 0, (_sel), sizeof((unsigned []) { 0, ## __VA_ARGS__ }) / sizeof(unsigned) - 1, ## __VA_ARGS__))
+  (_ovm_method_call((_ovm), (_dst), (_recvr), (_sel), sizeof((unsigned []) { 0, ## __VA_ARGS__ }) / sizeof(unsigned) - 1, ## __VA_ARGS__))
 #define OVM_METHOD_CALL_CL(_ovm, _dst, _recvr, _cl, _sel, ...)		\
-  (_ovm_method_call((_ovm), (_dst), (_recvr), (_cl), (_sel), sizeof((unsigned []) { 0, ## __VA_ARGS__ }) / sizeof(unsigned) - 1, ## __VA_ARGS__))
+  (_ovm_method_call_cl((_ovm), (_dst), (_recvr), (_cl), (_sel), sizeof((unsigned []) { 0, ## __VA_ARGS__ }) / sizeof(unsigned) - 1, ## __VA_ARGS__))
 
 void ovm_boolean_newc(ovm_t ovm, unsigned dst, ovm_boolval_t val);
 void ovm_integer_newc(ovm_t ovm, unsigned dst, ovm_intval_t val);
